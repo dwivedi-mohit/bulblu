@@ -1,23 +1,43 @@
 {
   "expo": {
-    "name": "bulblu-temp",
-    "slug": "bulblu-temp",
+    "owner": "mohitdwivedi",
+    "name": "bulblu",
+    "slug": "bulblu",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "bulblutemp",
+    "scheme": "bulblu",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.bulblu.app",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Bulblu needs your location to help you discover nearby people, events, and posts.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Bulblu uses your location to keep your local feed updated.",
+        "NSPhotoLibraryUsageDescription": "Bulblu needs access to your photo library to share photos and set your profile picture.",
+        "NSPhotoLibraryAddUsageDescription": "Bulblu needs permission to save photos to your library.",
+        "NSCameraUsageDescription": "Bulblu needs access to your camera to take photos and create stories.",
+        "NSMicrophoneUsageDescription": "Bulblu needs microphone access for voice messages and video recording."
+      }
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/android-icon-foreground.png",
-        "backgroundImage": "./assets/images/android-icon-background.png",
-        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+        "backgroundColor": "#0A0E1A",
+        "foregroundImage": "./assets/images/icon.png"
       },
-      "predictiveBackGestureEnabled": false
+      "package": "com.bulblu.app",
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "READ_MEDIA_IMAGES",
+        "READ_MEDIA_VIDEO",
+        "READ_MEDIA_AUDIO",
+        "RECORD_AUDIO",
+        "POST_NOTIFICATIONS"
+      ]
     },
     "web": {
       "bundler": "metro",
@@ -29,14 +49,45 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/splash-icon.png",
+          "image": "./assets/images/icon.png",
           "resizeMode": "contain",
-          "backgroundColor": "#ffffff"
+          "backgroundColor": "#0A0E1A"
+        }
+      ],
+      "expo-status-bar",
+      "expo-secure-store",
+      "expo-video",
+      [
+        "@react-native-google-signin/google-signin",
+        {
+          "iosUrlScheme": "com.googleusercontent.apps.403262111405-g8slek04455rta7o29l3q07grgp2f9rl"
+        }
+      ],
+      "expo-web-browser",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Bulblu needs your location to help you discover nearby people and events."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Bulblu needs access to your photos to upload media and set your profile picture.",
+          "cameraPermission": "Bulblu needs access to your camera to capture photos and stories."
         }
       ]
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "apiUrl": "http://192.168.1.102:3000",
+      "googleWebClientId": "403262111405-g8slek04455rta7o29l3q07grgp2f9rl.apps.googleusercontent.com",
+      "router": {},
+      "eas": {
+        "projectId": "dd400513-0496-42d6-9af9-eff671baf26f"
+      }
     }
   }
 }
