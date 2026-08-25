@@ -11,4 +11,7 @@ export const config = {
   jwtSecret: process.env.JWT_SECRET || 'bulblu-dev-secret-change-in-production-2026',
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '7d',
   uploadDir: process.env.UPLOAD_DIR || './uploads',
+  livekitWsUrl: process.env.LIVEKIT_WS_URL || 'ws://localhost:7880',
+  livekitApiKey: process.env.LIVEKIT_API_KEY || '',
+  livekitApiSecret: process.env.LIVEKIT_API_SECRET || '',
 };

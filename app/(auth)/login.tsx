@@ -238,6 +238,35 @@ export default function LoginScreen() {
               </TouchableOpacity>
 
               {error && <Text style={styles.error}>{error}</Text>}
+
+              <TouchableOpacity
+                style={{
+                  backgroundColor: '#0F766E',
+                  borderRadius: 16,
+                  paddingVertical: 14,
+                  alignItems: 'center',
+                  marginTop: 12,
+                }}
+                onPress={async () => {
+                  try {
+                    setError(null);
+                    setLoading(true);
+                    await useAuthStore.getState().demoLogin();
+                    setLoading(false);
+                    router.replace('/(tabs)/explore');
+                  } catch (e) {
+                    setError(null);
+                    setLoading(false);
+                    router.replace('/(tabs)/explore');
+                  }
+                }}
+                disabled={loading}
+                activeOpacity={0.88}
+              >
+                <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 15, color: '#FFFFFF' }}>
+                  {loading ? 'Logging in...' : '🚀 Instant Demo Access →'}
+                </Text>
+              </TouchableOpacity>
             </View>
 
             <TouchableOpacity

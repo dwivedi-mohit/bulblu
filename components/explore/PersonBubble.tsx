@@ -16,6 +16,7 @@ import { Avatar } from '../ui/Avatar';
 
 interface PersonBubbleProps {
   uri: string | null;
+  userId?: string;
   name: string;
   isOnline?: boolean;
   onPress?: () => void;
@@ -24,6 +25,7 @@ interface PersonBubbleProps {
 
 export function PersonBubble({
   uri,
+  userId,
   name,
   isOnline = false,
   onPress,
@@ -79,7 +81,7 @@ export function PersonBubble({
               ]}
             />
           )}
-          <Avatar uri={uri} size="lg" showOnline={isOnline} />
+          <Avatar uri={uri} userId={userId} size="lg" showOnline={isOnline} />
           <Text
             style={[
               styles.name,

@@ -14,6 +14,7 @@ import { User } from '../../types/database';
 import { Colors } from '../../constants/colors';
 import { Spacing, Radius } from '../../constants/spacing';
 import { Typography } from '../../constants/typography';
+import { useCachedProfile } from '../ui/UserText';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.25;
@@ -38,6 +39,13 @@ export function ProfileCard({
   const translateX = useSharedValue(0);
   const rotate = useSharedValue(0);
   const cardOpacity = useSharedValue(1);
+
+  // Live identity overlay, so a pfp/name/bio/city change lands without a refetch.
+  const live = useCachedProfile(user.id);
+  const photoUri = live?.avatar_url || user.avatar_url || undefined;
+  const displayName = live?.full_name || user.full_name;
+  const displayCity = live?.city || user.city;
+  const displayBio = live?.bio || user.bio;
 
   const age = user.date_of_birth
     ? Math.floor(
@@ -118,7 +126,7 @@ export function ProfileCard({
       <GestureDetector gesture={gesture}>
         <View style={styles.cardInner}>
           <Image
-            source={{ uri: user.avatar_url ?? undefined }}
+            source={{ uri: photoUri }}
             style={styles.photo}
             resizeMode="cover"
           />
@@ -142,22 +150,22 @@ export function ProfileCard({
           <View style={styles.info}>
             <View style={styles.nameRow}>
               <Text style={styles.name}>
-                {user.full_name}
+                {displayName}
                 {age !== null ? `, ${age}` : ''}
               </Text>
               {user.is_online && <View style={styles.onlineDot} />}
             </View>
 
-            {user.city && (
+            {displayCity && (
               <View style={styles.locationRow}>
                 <MapPin size={14} color={Colors.textSecondary} />
-                <Text style={styles.location}>{user.city}</Text>
+                <Text style={styles.location}>{displayCity}</Text>
               </View>
             )}
 
-            {user.bio ? (
+            {displayBio ? (
               <Text style={styles.bio} numberOfLines={2}>
-                {user.bio}
+                {displayBio}
               </Text>
             ) : null}
 

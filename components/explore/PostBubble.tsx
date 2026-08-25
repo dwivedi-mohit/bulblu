@@ -10,6 +10,7 @@ import { Colors } from '../../constants/colors';
 import { Radius, Spacing } from '../../constants/spacing';
 import { Typography } from '../../constants/typography';
 import { GlassCard } from '../ui/GlassCard';
+import { DisplayName } from '../ui/UserText';
 import { Post } from '../../types/database';
 
 interface PostBubbleProps {
@@ -54,7 +55,11 @@ export function PostBubble({ post, onPress }: PostBubbleProps) {
             </View>
           ) : post.user ? (
             <View style={styles.userRow}>
-              <Text style={styles.userName}>{post.user.full_name}</Text>
+              <DisplayName
+                userId={post.user_id}
+                fallback={post.user.full_name}
+                style={styles.userName}
+              />
             </View>
           ) : null}
 

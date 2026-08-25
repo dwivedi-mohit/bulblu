@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Bulblu Live Call</title>
+  <script src="/socket.io/socket.io.js"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    body, html {
+      width: 100%;
+      height: 100%;
+      background: #090D16;
+      color: #FFFFFF;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      overflow: hidden;
+    }
+    #call-container {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      align-items: center;
+      background: #090D16;
+    }
+    /* Video Layers */
+    #remote-video {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      z-index: 1;
+      background: #090D16;
+    }
+    #local-video-card {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      width: 110px;
+      height: 155px;
+      border-radius: 18px;
+      overflow: hidden;
+      border: 2px solid #14B8A6;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+      background: #1E293B;
+      z-index: 20;
+      transition: all 0.3s ease;
+    }
+    #local-video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transform: scaleX(-1);
+    }
+    /* Voice Mode Avatar View */
+    #voice-avatar-box {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 5;
+      background: radial-gradient(circle at center, #0F766E 0%, #042F2E 60%, #090D16 100%);
+    }
+    .avatar-wrapper {
+      position: relative;
+      width: 130px;
+      height: 130px;
+      margin-bottom: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .pulse-ring {
+      position: absolute;
+      width: 130px;
+      height: 130px;
+      border-radius: 50%;
+      background: rgba(20, 184, 166, 0.4);
+      animation: pulse 2s infinite ease-out;
+    }
+    .pulse-ring:nth-child(2) {
+      animation-delay: 0.6s;
+    }
+    @keyframes pulse {
+      0% { transform: scale(1); opacity: 0.8; }
+      100% { transform: scale(1.8); opacity: 0; }
+    }
+    .avatar-img {
+      position: relative;
+      width: 110px;
+      height: 110px;
+      border-radius: 50%;
+      border: 3px solid #14B8A6;
+      object-fit: cover;
+      background: #134E4A;
+      box-shadow: 0 0 30px rgba(20, 184, 166, 0.5);
+      z-index: 10;
+    }
+    .partner-name {
+      font-size: 24px;
+      font-weight: 700;
+      margin-bottom: 6px;
+      letter-spacing: 0.5px;
+    }
+    .call-status {
+      font-size: 15px;
+      color: #CCFBF1;
+      font-weight: 500;
+    }
+    /* Top Bar */
+    .top-header {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      z-index: 30;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(15, 23, 42, 0.75);
+      backdrop-filter: blur(12px);
+      padding: 8px 16px;
+      border-radius: 30px;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+    }
+    .live-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #10B981;
+      animation: blink 1.5s infinite ease-in-out;
+    }
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+    .top-timer {
+      font-size: 13px;
+      font-weight: 700;
+      color: #CCFBF1;
+    }
+    /* Bottom Controls */
+    .bottom-dock {
+      position: absolute;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 30;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      background: rgba(15, 23, 42, 0.85);
+      backdrop-filter: blur(20px);
+      padding: 12px 24px;
+      border-radius: 44px;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    }
+    .ctrl-btn {
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      border: none;
+      outline: none;
+      background: rgba(255, 255, 255, 0.12);
+      color: #FFFFFF;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 20px;
+      transition: all 0.2s ease;
+    }
+    .ctrl-btn:active {
+      transform: scale(0.92);
+    }
+    .ctrl-btn.active {
+      background: #EF4444;
+      color: #FFFFFF;
+    }
+    .ctrl-btn.end-btn {
+      width: 60px;
+      height: 60px;
+      background: #EF4444;
+      color: #FFFFFF;
+      font-size: 24px;
+      box-shadow: 0 4px 16px rgba(239, 68, 68, 0.5);
+    }
+    .hidden {
+      display: none !important;
+    }
+  </style>
+</head>
+<body>
+  <div id="call-container">
+    <!-- Top Header -->
+    <div class="top-header">
+      <div class="live-dot"></div>
+      <span id="header-status" class="top-timer">Connecting...</span>
+    </div>
+
+    <!-- Video Layers -->
+    <video id="remote-video" autoplay playsinline></video>
+
+    <div id="local-video-card" class="hidden">
+      <video id="local-video" autoplay playsinline muted></video>
+    </div>
+
+    <!-- Voice Mode / Waiting Avatar Screen -->
+    <div id="voice-avatar-box">
+      <div class="avatar-wrapper">
+        <div class="pulse-ring"></div>
+        <div class="pulse-ring"></div>
+        <img id="partner-avatar" class="avatar-img" src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300" alt="Avatar">
+      </div>
+      <div id="partner-name" class="partner-name">Companion</div>
+      <div id="call-subtitle" class="call-status">Connecting HD Audio...</div>
+    </div>
+
+    <!-- Bottom Controls Dock -->
+    <div class="bottom-dock">
+      <!-- Mute Mic -->
+      <button id="btn-mute" class="ctrl-btn" title="Mute/Unmute">🎤</button>
+
+      <!-- Flip Camera (Video Mode Only) -->
+      <button id="btn-flip" class="ctrl-btn hidden" title="Flip Camera">🔄</button>
+
+      <!-- Camera Toggle (Video Mode Only) -->
+      <button id="btn-cam" class="ctrl-btn hidden" title="Camera On/Off">📹</button>
+
+      <!-- End Call -->
+      <button id="btn-end" class="ctrl-btn end-btn" title="End Call">📞</button>
+    </div>
+  </div>
+
+  <script>
+    const urlParams = new URLSearchParams(window.location.search);
+    const roomId = urlParams.get('room') || 'default_room';
+    const userId = urlParams.get('user') || 'user_' + Math.random().toString(36).substring(7);
+    const partnerName = urlParams.get('name') || 'Companion';
+    const partnerAvatar = urlParams.get('avatar') || '';
+    const callType = urlParams.get('type') || 'video'; // 'voice' | 'video'
+
+    document.getElementById('partner-name').innerText = partnerName;
+    if (partnerAvatar) {
+      document.getElementById('partner-avatar').src = partnerAvatar;
+    }
+
+    const isVideoMode = callType === 'video';
+    if (isVideoMode) {
+      document.getElementById('local-video-card').classList.remove('hidden');
+      document.getElementById('btn-flip').classList.remove('hidden');
+      document.getElementById('btn-cam').classList.remove('hidden');
+    }
+
+    let localStream = null;
+    let peerConnection = null;
+    let isMuted = false;
+    let isCameraOff = false;
+    let currentFacing = 'user';
+    let callTimerInterval = null;
+    let callSeconds = 0;
+
+    const socket = io();
+
+    const configuration = {
+      iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' },
+        { urls: 'stun:stun2.l.google.com:19302' },
+        { urls: 'stun:stun3.l.google.com:19302' },
+      ]
+    };
+
+    function startTimer() {
+      if (callTimerInterval) return;
+      callSeconds = 0;
+      callTimerInterval = setInterval(() => {
+        callSeconds++;
+        const m = Math.floor(callSeconds / 60);
+        const s = callSeconds % 60;
+        const timeStr = `${m < 10 ? '0' : ''}${m}:${s < 10 ? '0' : ''}${s}`;
+        document.getElementById('header-status').innerText = (isVideoMode ? 'HD Video • ' : 'HD Voice • ') + timeStr;
+      }, 1000);
+    }
+
+    async function initMedia() {
+      try {
+        const constraints = {
+          audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+          video: isVideoMode ? { facingMode: currentFacing, width: { ideal: 1280 }, height: { ideal: 720 } } : false
+        };
+
+        localStream = await navigator.mediaDevices.getUserMedia(constraints);
+
+        if (isVideoMode) {
+          document.getElementById('local-video').srcObject = localStream;
+        }
+
+        socket.emit('webrtc:join', { roomId, userId });
+      } catch (err) {
+        console.error('Media error:', err);
+        document.getElementById('call-subtitle').innerText = 'Microphone/Camera permission needed';
+      }
+    }
+
+    function createPeerConnection() {
+      peerConnection = new RTCPeerConnection(configuration);
+
+      localStream.getTracks().forEach(track => {
+        peerConnection.addTrack(track, localStream);
+      });
+
+      peerConnection.onicecandidate = (event) => {
+        if (event.candidate) {
+          socket.emit('webrtc:signal', { roomId, candidate: event.candidate, senderId: userId });
+        }
+      };
+
+      peerConnection.ontrack = (event) => {
+        if (event.streams && event.streams[0]) {
+          const remoteVideo = document.getElementById('remote-video');
+          remoteVideo.srcObject = event.streams[0];
+
+          if (isVideoMode) {
+            document.getElementById('voice-avatar-box').classList.add('hidden');
+          }
+          startTimer();
+          document.getElementById('call-subtitle').innerText = 'Connected';
+        }
+      };
+    }
+
+    // Socket Signaling
+    socket.on('webrtc:ready', async () => {
+      createPeerConnection();
+      const offer = await peerConnection.createOffer({
+        offerToReceiveAudio: true,
+        offerToReceiveVideo: isVideoMode
+      });
+      await peerConnection.setLocalDescription(offer);
+      socket.emit('webrtc:signal', { roomId, offer, senderId: userId });
+    });
+
+    socket.on('webrtc:signal', async (data) => {
+      if (data.senderId === userId) return;
+
+      if (!peerConnection) {
+        createPeerConnection();
+      }
+
+      if (data.offer) {
+        await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
+        const answer = await peerConnection.createAnswer();
+        await peerConnection.setLocalDescription(answer);
+        socket.emit('webrtc:signal', { roomId, answer, senderId: userId });
+      } else if (data.answer) {
+        await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
+      } else if (data.candidate) {
+        await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
+      }
+    });
+
+    socket.on('webrtc:ended', () => {
+      endCall(false);
+    });
+
+    // Control Handlers
+    document.getElementById('btn-mute').addEventListener('click', () => {
+      isMuted = !isMuted;
+      if (localStream) {
+        localStream.getAudioTracks().forEach(t => t.enabled = !isMuted);
+      }
+      document.getElementById('btn-mute').classList.toggle('active', isMuted);
+      document.getElementById('btn-mute').innerText = isMuted ? '🔇' : '🎤';
+    });
+
+    document.getElementById('btn-cam').addEventListener('click', () => {
+      isCameraOff = !isCameraOff;
+      if (localStream) {
+        localStream.getVideoTracks().forEach(t => t.enabled = !isCameraOff);
+      }
+      document.getElementById('btn-cam').classList.toggle('active', isCameraOff);
+      document.getElementById('btn-cam').innerText = isCameraOff ? '🚫' : '📹';
+    });
+
+    document.getElementById('btn-flip').addEventListener('click', async () => {
+      if (!localStream || !isVideoMode) return;
+      currentFacing = currentFacing === 'user' ? 'environment' : 'user';
+
+      try {
+        const newStream = await navigator.mediaDevices.getUserMedia({
+          audio: false,
+          video: { facingMode: currentFacing, width: { ideal: 1280 }, height: { ideal: 720 } }
+        });
+
+        const newTrack = newStream.getVideoTracks()[0];
+        const oldTrack = localStream.getVideoTracks()[0];
+
+        if (peerConnection) {
+          const sender = peerConnection.getSenders().find(s => s.track && s.track.kind === 'video');
+          if (sender) sender.replaceTrack(newTrack);
+        }
+
+        if (oldTrack) {
+          oldTrack.stop();
+          localStream.removeTrack(oldTrack);
+        }
+
+        localStream.addTrack(newTrack);
+        document.getElementById('local-video').srcObject = localStream;
+        document.getElementById('local-video').style.transform = currentFacing === 'user' ? 'scaleX(-1)' : 'none';
+      } catch (err) {
+        console.warn('Flip error:', err);
+      }
+    });
+
+    function endCall(notify = true) {
+      if (notify) {
+        socket.emit('webrtc:ended', { roomId, senderId: userId });
+      }
+      if (localStream) {
+        localStream.getTracks().forEach(t => t.stop());
+      }
+      if (peerConnection) {
+        peerConnection.close();
+      }
+      if (callTimerInterval) clearInterval(callTimerInterval);
+      document.getElementById('header-status').innerText = 'Call Ended';
+      document.getElementById('call-subtitle').innerText = 'Disconnected';
+
+      setTimeout(() => {
+        window.close();
+        window.location.href = 'bulblu://chat';
+      }, 500);
+    }
+
+    document.getElementById('btn-end').addEventListener('click', () => endCall(true));
+
+    initMedia();
+  </script>
+</body>
+</html>

@@ -351,12 +351,16 @@ export default function OnboardingScreen() {
 
       if (photoUri && photoUri !== user?.avatar_url && !photoUri.startsWith('http')) {
         try {
-          const uploadResult = await uploadFile('/api/upload/image', photoUri, 'file');
+          const uploadResult = await uploadFile('/api/upload', photoUri, 'file');
           if (uploadResult.data?.url) {
             avatarUrl = uploadResult.data.url;
+          } else {
+            Alert.alert('Upload Failed', 'Could not upload your photo. Please try again.');
+            return;
           }
         } catch (e) {
-          console.warn('Image upload failed, using photoUri fallback:', e);
+          Alert.alert('Upload Failed', 'Could not upload your photo. Please try again.');
+          return;
         }
       }
 
@@ -770,10 +774,9 @@ export default function OnboardingScreen() {
       <Text style={styles.completeTitle}>You're all set!</Text>
       <Text style={styles.completeSubtitle}>Welcome to bulblu, {user?.full_name?.split(' ')[0]}</Text>
 
-      <TouchableOpacity style={styles.startButton} onPress={() => router.replace('/(tabs)/explore')}>
-        <Text style={styles.startButtonText}>Start Exploring</Text>
-        <Ionicons name="arrow-forward" size={20} color="#fff" />
-      </TouchableOpacity>
+      <View style={styles.startButton}>
+        <Text style={styles.startButtonText}>Redirecting...</Text>
+      </View>
     </Animated.View>
   );
 

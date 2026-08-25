@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,34 +6,33 @@ import {
   TouchableOpacity,
   Platform,
   Dimensions,
+  Image,
 } from 'react-native';
-import Svg, { Path } from 'react-native-svg';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withSpring,
+  withTiming,
 } from 'react-native-reanimated';
-import { Colors } from '../../constants/colors';
 import { MascotTabIcon } from './MascotTabIcon';
+import { useAuthStore } from '../../stores/authStore';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
-// Explicitly allow ONLY these 5 tabs in exact order
 const ALLOWED_TAB_NAMES = ['rent', 'voice', 'explore', 'messages', 'video'];
 
 interface TabItemDef {
   name: string;
   label: string;
   iconType: 'home' | 'rent' | 'voice' | 'chats' | 'video';
-  isCenter?: boolean;
 }
 
 const TAB_CONFIGS: Record<string, TabItemDef> = {
   rent: { name: 'rent', label: 'Rent', iconType: 'rent' },
-  voice: { name: 'voice', label: 'Voice Room', iconType: 'voice' },
-  explore: { name: 'explore', label: 'Home', iconType: 'home', isCenter: true },
+  voice: { name: 'voice', label: 'Voice', iconType: 'voice' },
+  explore: { name: 'explore', label: 'Home', iconType: 'home' },
   messages: { name: 'messages', label: 'Chat', iconType: 'chats' },
-  video: { name: 'video', label: 'Video Call', iconType: 'video' },
+  video: { name: 'video', label: 'Video', iconType: 'video' },
 };
 
 function TabIconButton({
@@ -45,57 +44,52 @@ function TabIconButton({
   isFocused: boolean;
   onPress: () => void;
 }) {
-  const scale = useSharedValue(1);
+  const user = useAuthStore((s) => s.user);
+  const translateY = useSharedValue(isFocused ? -12 : 0);
+  const scale = useSharedValue(isFocused ? 1.15 : 0.96);
+  const cardOpacity = useSharedValue(isFocused ? 1 : 0);
+
+  useEffect(() => {
+    translateY.value = withSpring(isFocused ? -12 : 0, {
+      damping: 15,
+      stiffness: 220,
+    });
+    scale.value = withSpring(isFocused ? 1.15 : 0.96, {
+      damping: 14,
+      stiffness: 200,
+    });
+    cardOpacity.value = withTiming(isFocused ? 1 : 0, { duration: 180 });
+  }, [isFocused]);
 
   const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
+    transform: [
+      { translateY: translateY.value },
+      { scale: scale.value },
+    ],
   }));
 
-  const handlePressIn = () => {
-    scale.value = withSpring(0.9, { damping: 14, stiffness: 350 });
-  };
-
-  const handlePressOut = () => {
-    scale.value = withSpring(1, { damping: 12, stiffness: 220 });
-  };
-
-  if (item.isCenter) {
-    return (
-      <TouchableOpacity
-        onPress={onPress}
-        onPressIn={handlePressIn}
-        onPressOut={handlePressOut}
-        activeOpacity={0.9}
-        style={styles.centerButtonWrapper}
-      >
-        <Animated.View style={[styles.centerButtonOuter, animatedStyle]}>
-          <View style={[styles.centerCircle, isFocused && styles.centerCircleActive]}>
-            <MascotTabIcon type="home" focused={isFocused} size={28} />
-          </View>
-        </Animated.View>
-        {/* Active Dot Indicator under center Home */}
-        <View style={styles.dotSpace}>
-          {isFocused && <View style={styles.activeDot} />}
-        </View>
-      </TouchableOpacity>
-    );
-  }
+  const cardStyle = useAnimatedStyle(() => ({
+    opacity: cardOpacity.value,
+  }));
 
   return (
     <TouchableOpacity
       onPress={onPress}
-      onPressIn={handlePressIn}
-      onPressOut={handlePressOut}
-      activeOpacity={0.8}
-      style={styles.sideTabItem}
+      activeOpacity={0.85}
+      style={styles.tabTouchItem}
     >
-      <Animated.View style={[styles.iconWrapper, animatedStyle]}>
-        <MascotTabIcon type={item.iconType} focused={isFocused} size={26} />
+      {/* Soft Rounded Active Pill Card Backdrop (Matching Reference Image) */}
+      <Animated.View style={[styles.activePillCard, cardStyle]} />
+
+      {/* Mascot Graphic Icon */}
+      <Animated.View style={[styles.tabButtonOuter, animatedStyle]}>
+        <MascotTabIcon type={item.iconType} focused={isFocused} size={isFocused ? 54 : 46} />
       </Animated.View>
-      {/* Active Dot Indicator under side icons */}
-      <View style={styles.dotSpace}>
-        {isFocused && <View style={styles.activeDot} />}
-      </View>
+
+      {/* Text Label */}
+      <Text style={[styles.tabLabel, isFocused && styles.tabLabelActive]}>
+        {item.label}
+      </Text>
     </TouchableOpacity>
   );
 }
@@ -106,41 +100,11 @@ export function FluidGlassTabBar({ state, descriptors, navigation }: any) {
     state.routes.find((r: any) => r.name === name)
   ).filter(Boolean);
 
-  const barWidth = SCREEN_WIDTH - 32;
-  const barHeight = 64;
-  const cx = barWidth / 2;
-
-  // SVG Notched Curved Path (matching reference image)
-  const d = `
-    M 28,0
-    H ${cx - 36}
-    C ${cx - 20},0 ${cx - 18},26 ${cx},26
-    C ${cx + 18},26 ${cx + 20},0 ${cx + 36},0
-    H ${barWidth - 28}
-    A 28,28 0 0 1 ${barWidth},28
-    V ${barHeight - 28}
-    A 28,28 0 0 1 ${barWidth - 28},${barHeight}
-    H 28
-    A 28,28 0 0 1 0,${barHeight - 28}
-    V 28
-    A 28,28 0 0 1 28,0
-    Z
-  `;
+  const barWidth = SCREEN_WIDTH - 20;
 
   return (
     <View style={styles.container}>
-      <View style={[styles.barWrapper, { width: barWidth, height: barHeight }]}>
-        {/* Curved Cutout SVG Background */}
-        <Svg width={barWidth} height={barHeight} style={StyleSheet.absoluteFill}>
-          <Path
-            d={d}
-            fill="#FFFFFF"
-            stroke="rgba(15, 118, 110, 0.12)"
-            strokeWidth="1.5"
-          />
-        </Svg>
-
-        {/* 5 Tab Items Grid */}
+      <View style={[styles.barWrapper, { width: barWidth }]}>
         <View style={styles.itemsRow}>
           {visibleRoutes.map((route: any) => {
             const actualIndex = state.routes.findIndex((r: any) => r.key === route.key);
@@ -181,75 +145,87 @@ export function FluidGlassTabBar({ state, descriptors, navigation }: any) {
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
-    bottom: Platform.OS === 'ios' ? 24 : 16,
+    bottom: Platform.OS === 'ios' ? 24 : 14,
     left: 0,
     right: 0,
     alignItems: 'center',
   },
   barWrapper: {
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.08,
-    shadowRadius: 18,
-    elevation: 12,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    height: 78,
+    borderWidth: 1.5,
+    borderColor: 'rgba(20, 184, 166, 0.22)',
+    shadowColor: '#0F766E',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    elevation: 10,
+    justifyContent: 'center',
   },
   itemsRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     height: '100%',
-    paddingHorizontal: 8,
+    paddingHorizontal: 4,
   },
-  sideTabItem: {
+  tabTouchItem: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     height: '100%',
-  },
-  iconWrapper: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  dotSpace: {
-    height: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 3,
-  },
-  activeDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#0F766E',
+    position: 'relative',
   },
 
-  // Center Hero Button
-  centerButtonWrapper: {
-    flex: 1,
+  activePillCard: {
+    position: 'absolute',
+    top: 4,
+    bottom: 4,
+    left: 4,
+    right: 4,
+    backgroundColor: 'rgba(20, 184, 166, 0.08)',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(20, 184, 166, 0.22)',
+  },
+
+  tabButtonOuter: {
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: -22,
+    marginBottom: 12,
   },
-  centerButtonOuter: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    padding: 3,
-    backgroundColor: '#FFFFFF',
-    shadowColor: '#0F766E',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.25,
-    shadowRadius: 10,
-    elevation: 10,
+  tabLabel: {
+    fontFamily: 'Inter-SemiBold',
+    fontSize: 10.5,
+    color: '#64748B',
+    position: 'absolute',
+    bottom: 7,
   },
-  centerCircle: {
-    flex: 1,
-    borderRadius: 23,
-    backgroundColor: '#0F766E',
-    alignItems: 'center',
-    justifyContent: 'center',
+  tabLabelActive: {
+    color: '#0F766E',
+    fontFamily: 'SpaceGrotesk-Bold',
+    fontSize: 11,
   },
-  centerCircleActive: {
-    backgroundColor: '#0D9488',
+  profileAvatarWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: 'transparent',
+    overflow: 'hidden',
+  },
+  profileAvatarFocused: {
+    borderColor: '#0F766E',
+  },
+  profileAvatarImg: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+  },
+  profileAvatarFallback: {
+    fontFamily: 'SpaceGrotesk-Bold',
+    fontSize: 13,
+    color: '#0F766E',
   },
 });

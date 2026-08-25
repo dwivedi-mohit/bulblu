@@ -101,7 +101,9 @@ router.get('/bookings', authMiddleware, async (req: AuthRequest, res: Response) 
     let sql = `
       SELECT b.*,
         bu.username AS booker_username, bu.avatar_url AS booker_avatar,
+        cu.id AS companion_user_id,
         cu.username AS companion_username, cu.avatar_url AS companion_avatar,
+        cu.full_name AS companion_full_name,
         cp.activities AS companion_activities
       FROM bookings b
       JOIN companion_profiles cp ON b.companion_id = cp.id

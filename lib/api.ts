@@ -1,7 +1,59 @@
 import Constants from 'expo-constants';
+import { Platform } from 'react-native';
+import * as FileSystem from 'expo-file-system';
 
-const extra = Constants.expoConfig?.extra;
-const API_URL = extra?.apiUrl ?? process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000';
+export function getApiUrls(): string[] {
+  const urls: string[] = [];
+
+  if (Platform.OS === 'web') {
+    if (typeof window !== 'undefined' && window.location?.hostname) {
+      urls.push(`http://${window.location.hostname}:3000`);
+    }
+    urls.push('http://localhost:3000');
+  }
+
+  if (process.env.EXPO_PUBLIC_API_URL) {
+    urls.push(process.env.EXPO_PUBLIC_API_URL);
+  }
+
+  const hostUri = Constants.expoConfig?.hostUri;
+  if (hostUri) {
+    const ip = hostUri.split(':')[0];
+    if (ip && ip !== 'localhost' && ip !== '127.0.0.1') {
+      urls.push(`http://${ip}:3000`);
+    }
+  }
+
+  // Developer local Wi-Fi LAN IP fallback for physical devices
+  if (!urls.includes('http://192.168.1.69:3000')) {
+    urls.push('http://192.168.1.69:3000');
+  }
+
+  const extra = Constants.expoConfig?.extra;
+  if (extra?.apiUrl && !urls.includes(extra.apiUrl)) {
+    urls.push(extra.apiUrl);
+  }
+
+  if (Platform.OS === 'android') {
+    if (!urls.includes('http://10.0.2.2:3000')) {
+      urls.push('http://10.0.2.2:3000');
+    }
+  }
+
+  if (Platform.OS === 'web') {
+    if (!urls.includes('http://localhost:3000')) {
+      urls.push('http://localhost:3000');
+    }
+  }
+
+  return urls;
+}
+
+export function getApiUrl(): string {
+  return getApiUrls()[0] || 'http://192.168.1.69:3000';
+}
+
+export const API_URL = getApiUrl();
 
 let authToken: string | null = null;
 
@@ -34,61 +86,144 @@ export async function api<T = any>(
     allHeaders['Authorization'] = `Bearer ${authToken}`;
   }
 
-  try {
-    const response = await fetch(`${API_URL}${endpoint}`, {
-      method,
-      headers: allHeaders,
-      body: body ? JSON.stringify(body) : undefined,
-    });
+  const urlsToTry = getApiUrls();
+  let lastError = 'Network connection unavailable.';
 
-    const data = await response.json();
+  for (const baseUrl of urlsToTry) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3500);
 
-    if (!response.ok) {
-      return { data: null, error: data.error || 'Something went wrong' };
+      const response = await fetch(`${baseUrl}${endpoint}`, {
+        method,
+        headers: allHeaders,
+        body: body ? JSON.stringify(body) : undefined,
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+      const data = await response.json();
+
+      if (!response.ok) {
+        return { data: null, error: data.error || 'Server error' };
+      }
+
+      return { data, error: null };
+    } catch (err: any) {
+      if (err?.name === 'AbortError') {
+        lastError = 'Connection timed out.';
+      } else {
+        lastError = 'Unable to connect to server.';
+      }
     }
-
-    return { data, error: null };
-  } catch (err) {
-    return { data: null, error: 'Network error. Please check your connection.' };
   }
+
+  return { data: null, error: lastError };
 }
 
 export async function uploadFile(
   endpoint: string,
-  uri: string,
+  uriOrFile: string | File,
   fieldName: string = 'file'
-): Promise<{ data: { url: string } | null; error: string | null }> {
-  try {
-    const formData = new FormData();
-    const filename = uri.split('/').pop() || 'file.jpg';
-    const match = /\.(\w+)$/.exec(filename);
-    const type = match ? `image/${match[1]}` : 'image/jpeg';
+): Promise<{ data: { url: string; filename?: string } | null; error: string | null }> {
+  const urlsToTry = getApiUrls();
 
-    formData.append(fieldName, {
-      uri,
-      name: filename,
-      type,
-    } as any);
+  // Native Android & iOS upload using official expo-file-system/legacy
+  if (Platform.OS !== 'web' && typeof uriOrFile === 'string') {
+    let lastError: string | null = null;
+    let FileSystemLegacy: any = null;
 
-    const headers: Record<string, string> = {};
-    if (authToken) {
-      headers['Authorization'] = `Bearer ${authToken}`;
+    try {
+      FileSystemLegacy = require('expo-file-system/legacy');
+    } catch (e) {
+      console.warn('[Upload] Failed to load expo-file-system/legacy:', e);
     }
 
-    const response = await fetch(`${API_URL}${endpoint}`, {
-      method: 'POST',
-      headers,
-      body: formData,
-    });
+    if (FileSystemLegacy && typeof FileSystemLegacy.uploadAsync === 'function') {
+      for (const baseUrl of urlsToTry) {
+        try {
+          const uploadUrl = `${baseUrl}${endpoint}`;
+          const headers: Record<string, string> = {};
+          if (authToken) {
+            headers['Authorization'] = `Bearer ${authToken}`;
+          }
 
-    const data = await response.json();
+          const response = await FileSystemLegacy.uploadAsync(uploadUrl, uriOrFile, {
+            httpMethod: 'POST',
+            uploadType: FileSystemLegacy.FileSystemUploadType?.MULTIPART ?? 0,
+            fieldName,
+            headers,
+          });
 
-    if (!response.ok) {
-      return { data: null, error: data.error || 'Upload failed' };
+          if (response.status >= 200 && response.status < 300) {
+            const data = JSON.parse(response.body);
+            return { data, error: null };
+          } else {
+            try {
+              const errData = JSON.parse(response.body);
+              lastError = errData.error || `Upload failed with status ${response.status}`;
+            } catch {
+              lastError = `Upload failed with status ${response.status}`;
+            }
+          }
+        } catch (err: any) {
+          lastError = err?.message || 'Connection failed';
+        }
+      }
+      return { data: null, error: lastError || 'Upload failed. Check your connection.' };
     }
-
-    return { data, error: null };
-  } catch {
-    return { data: null, error: 'Upload failed. Check your connection.' };
   }
+
+  // Web platform & fallback using standard FormData
+  const formData = new FormData();
+  if (typeof uriOrFile === 'string') {
+    if (uriOrFile.startsWith('blob:') || uriOrFile.startsWith('data:')) {
+      try {
+        const res = await fetch(uriOrFile);
+        const blob = await res.blob();
+        const ext = blob.type.includes('video') ? 'mp4' : blob.type.includes('audio') ? 'm4a' : blob.type.includes('png') ? 'png' : 'jpg';
+        const filename = `file_${Date.now()}.${ext}`;
+        const file = new File([blob], filename, { type: blob.type || 'image/jpeg' });
+        formData.append(fieldName, file);
+      } catch {
+        formData.append(fieldName, uriOrFile);
+      }
+    } else {
+      formData.append(fieldName, uriOrFile);
+    }
+  } else {
+    formData.append(fieldName, uriOrFile as File);
+  }
+
+  let lastError: string | null = null;
+  for (const baseUrl of urlsToTry) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 60000);
+
+      const headers: Record<string, string> = {};
+      if (authToken) {
+        headers['Authorization'] = `Bearer ${authToken}`;
+      }
+
+      const response = await fetch(`${baseUrl}${endpoint}`, {
+        method: 'POST',
+        headers,
+        body: formData,
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+      const data = await response.json();
+
+      if (response.ok) {
+        return { data, error: null };
+      } else {
+        lastError = data.error || `Upload failed with status ${response.status}`;
+      }
+    } catch (err: any) {
+      lastError = err?.message || 'Connection failed';
+    }
+  }
+  return { data: null, error: lastError || 'Upload failed. Check your connection.' };
 }

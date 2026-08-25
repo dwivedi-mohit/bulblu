@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS users (
   interests TEXT[] DEFAULT '{}',
   looking_for TEXT[] DEFAULT '{}',
   is_companion BOOLEAN DEFAULT FALSE,
+  is_admin BOOLEAN DEFAULT FALSE,
   is_verified BOOLEAN DEFAULT TRUE,
   is_online BOOLEAN DEFAULT FALSE,
   last_active TIMESTAMPTZ DEFAULT NOW(),
@@ -202,12 +203,41 @@ CREATE TABLE IF NOT EXISTS blocks (
 CREATE TABLE IF NOT EXISTS notifications (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  type TEXT NOT NULL CHECK (type IN ('match', 'message', 'booking', 'story', 'system')),
+  type TEXT NOT NULL CHECK (type IN ('match', 'message', 'booking', 'story', 'system', 'follow')),
   title TEXT NOT NULL,
   body TEXT NOT NULL DEFAULT '',
   data JSONB DEFAULT '{}',
   is_read BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Companion applications table (for "Become a Companion" feature)
+CREATE TABLE IF NOT EXISTS companion_applications (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+  full_legal_name VARCHAR(255) NOT NULL,
+  display_name VARCHAR(255) NOT NULL,
+  phone_number VARCHAR(50) NOT NULL,
+  whatsapp_number VARCHAR(50) NOT NULL,
+  email VARCHAR(255) NOT NULL,
+  govt_id_type VARCHAR(50) NOT NULL,
+  govt_id_number VARCHAR(100) NOT NULL,
+  pfp_url TEXT,
+  gallery_images TEXT[],
+  live_selfie_url TEXT,
+  voice_intro_url TEXT,
+  bank_upi_id VARCHAR(255) NOT NULL,
+  hourly_rate NUMERIC DEFAULT 25,
+  speed_call_rate NUMERIC DEFAULT 5,
+  services_offered TEXT[],
+  city VARCHAR(100) DEFAULT 'Mumbai',
+  area VARCHAR(100) DEFAULT 'Near You',
+  bio TEXT,
+  signed_code_of_conduct BOOLEAN DEFAULT TRUE,
+  status VARCHAR(50) DEFAULT 'PENDING_VERIFICATION',
+  rejection_reason TEXT,
+  reviewed_at TIMESTAMPTZ,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Indexes
@@ -223,3 +253,47 @@ CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id, is_r
 CREATE INDEX IF NOT EXISTS idx_bookings_companion ON bookings(companion_id, date, status);
 CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
 CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires_at);
+CREATE INDEX IF NOT EXISTS idx_companion_applications_status ON companion_applications(status);
+CREATE INDEX IF NOT EXISTS idx_companion_applications_user ON companion_applications(user_id);
+CREATE INDEX IF NOT EXISTS idx_users_admin ON users(is_admin) WHERE is_admin = TRUE;
+
+-- Saved posts (bookmarks)
+CREATE TABLE IF NOT EXISTS saved_posts (
+  id SERIAL PRIMARY KEY,
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  post_id UUID NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(user_id, post_id)
+);
+CREATE INDEX IF NOT EXISTS idx_saved_posts_user ON saved_posts(user_id, created_at DESC);
+
+-- Voice room settings columns (added later)
+ALTER TABLE voice_rooms ADD COLUMN IF NOT EXISTS announcement TEXT DEFAULT '';
+ALTER TABLE voice_rooms ADD COLUMN IF NOT EXISTS pin_hash TEXT DEFAULT '';
+ALTER TABLE voice_rooms ADD COLUMN IF NOT EXISTS mic_queue_enabled BOOLEAN DEFAULT FALSE;
+ALTER TABLE voice_rooms ADD COLUMN IF NOT EXISTS category TEXT DEFAULT 'Party';
+ALTER TABLE voice_room_participants ADD COLUMN IF NOT EXISTS is_muted BOOLEAN DEFAULT FALSE;
+
+-- Voice room seats
+CREATE TABLE IF NOT EXISTS voice_room_seats (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  room_id UUID NOT NULL REFERENCES voice_rooms(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES users(id),
+  seat_index INTEGER NOT NULL,
+  UNIQUE(room_id, seat_index),
+  UNIQUE(room_id, user_id)
+);
+
+-- Voice room chat messages
+CREATE TABLE IF NOT EXISTS voice_room_messages (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  room_id UUID NOT NULL REFERENCES voice_rooms(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES users(id),
+  content TEXT NOT NULL,
+  message_type TEXT DEFAULT 'text',
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_vr_messages_room ON voice_room_messages(room_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_vr_seats_room ON voice_room_seats(room_id);
+CREATE INDEX IF NOT EXISTS idx_vr_participants_room ON voice_room_participants(room_id, left_at);

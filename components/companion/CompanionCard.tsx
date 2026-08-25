@@ -7,6 +7,7 @@ import { Typography } from '../../constants/typography';
 import { CompanionProfile } from '../../types/database';
 import { GlassCard } from '../ui/GlassCard';
 import { Avatar } from '../ui/Avatar';
+import { Bio, DisplayName } from '../ui/UserText';
 
 interface CompanionCardProps {
   companion: CompanionProfile;
@@ -25,13 +26,18 @@ const ACTIVITY_ICONS: Record<string, string> = {
 export function CompanionCard({ companion, onPress }: CompanionCardProps) {
   const user = companion.user;
   const ratingDisplay = companion.rating.toFixed(1);
+  // GET /api/companions returns flat rows (cp.*, u.full_name, ...), so the real
+  // users.id arrives as cp.user_id rather than a nested user object.
+  const ownerUserId = user?.id ?? (companion as any).user_id;
+  const nameFallback = user?.full_name ?? (companion as any).full_name;
+  const avatarFallback = user?.avatar_url ?? (companion as any).avatar_url ?? null;
 
   return (
     <Pressable onPress={onPress} style={styles.wrapper}>
       <GlassCard variant="elevated" style={styles.card}>
         <View style={styles.topRow}>
           <View style={styles.avatarArea}>
-            <Avatar uri={user?.avatar_url ?? null} size="lg" showOnline={user?.is_online} />
+             <Avatar uri={avatarFallback} userId={ownerUserId} size="lg" showOnline={user?.is_online} />
             {companion.is_available && (
               <View style={styles.onlineBadge}>
                 <Text style={styles.onlineText}>Available</Text>
@@ -40,9 +46,12 @@ export function CompanionCard({ companion, onPress }: CompanionCardProps) {
           </View>
 
           <View style={styles.infoArea}>
-            <Text style={styles.name} numberOfLines={1}>
-              {user?.full_name ?? 'Companion'}
-            </Text>
+            <DisplayName
+              userId={ownerUserId}
+              fallback={nameFallback ?? 'Companion'}
+              style={styles.name}
+              numberOfLines={1}
+            />
             <Text style={styles.rate}>${companion.hourly_rate}/hr</Text>
             <View style={styles.ratingRow}>
               <Star size={14} color={Colors.accentYellow} fill={Colors.accentYellow} />
@@ -52,9 +61,12 @@ export function CompanionCard({ companion, onPress }: CompanionCardProps) {
           </View>
         </View>
 
-        <Text style={styles.bio} numberOfLines={2}>
-          {companion.bio}
-        </Text>
+        <Bio
+          userId={ownerUserId}
+          fallback={companion.bio}
+          style={styles.bio}
+          numberOfLines={2}
+        />
 
         <View style={styles.activityRow}>
           {companion.activities.map((activity) => (

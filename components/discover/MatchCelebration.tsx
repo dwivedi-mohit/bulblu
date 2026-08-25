@@ -14,6 +14,7 @@ import { Colors } from '../../constants/colors';
 import { Spacing, Radius } from '../../constants/spacing';
 import { Typography } from '../../constants/typography';
 import { User } from '../../types/database';
+import { useCachedProfile } from '../ui/UserText';
 
 interface MatchCelebrationProps {
   currentUser: User | User;
@@ -34,6 +35,13 @@ export function MatchCelebration({
   const buttonsOpacity = useSharedValue(0);
   const avatar1X = useSharedValue(-200);
   const avatar2X = useSharedValue(200);
+
+  // Both avatars and the match line read through the live cache.
+  const liveSelf = useCachedProfile(currentUser?.id);
+  const liveMatch = useCachedProfile(matchedUser?.id);
+  const selfAvatar = liveSelf?.avatar_url || currentUser.avatar_url || undefined;
+  const matchAvatar = liveMatch?.avatar_url || matchedUser.avatar_url || undefined;
+  const matchName = liveMatch?.full_name || matchedUser.full_name;
 
   useEffect(() => {
     opacity.value = withTiming(1, { duration: 300 });
@@ -89,14 +97,14 @@ export function MatchCelebration({
       <Animated.View style={[styles.content, contentStyle]}>
         <Animated.View style={[styles.avatarsContainer, avatar1Style]}>
           <Image
-            source={{ uri: currentUser.avatar_url || undefined }}
+            source={{ uri: selfAvatar }}
             style={styles.avatar}
           />
         </Animated.View>
 
         <Animated.View style={[styles.avatarsContainer, avatar2Style]}>
           <Image
-            source={{ uri: matchedUser.avatar_url || undefined }}
+            source={{ uri: matchAvatar }}
             style={[styles.avatar, styles.avatarRight]}
           />
         </Animated.View>
@@ -106,7 +114,7 @@ export function MatchCelebration({
         </Animated.Text>
 
         <Animated.Text style={[styles.matchSubtitle, titleStyle]}>
-          You and {matchedUser.full_name} liked each other
+          You and {matchName} liked each other
         </Animated.Text>
 
         <Animated.View style={[styles.buttonContainer, buttonsStyle]}>

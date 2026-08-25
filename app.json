@@ -36,6 +36,9 @@
         "READ_MEDIA_VIDEO",
         "READ_MEDIA_AUDIO",
         "RECORD_AUDIO",
+        "MODIFY_AUDIO_SETTINGS",
+        "ACCESS_NETWORK_STATE",
+        "BLUETOOTH",
         "POST_NOTIFICATIONS"
       ]
     },
@@ -76,13 +79,14 @@
           "photosPermission": "Bulblu needs access to your photos to upload media and set your profile picture.",
           "cameraPermission": "Bulblu needs access to your camera to capture photos and stories."
         }
-      ]
+      ],
+      "expo-sharing",
+      "@config-plugins/react-native-webrtc"
     ],
     "experiments": {
       "typedRoutes": true
     },
     "extra": {
-      "apiUrl": "http://192.168.1.102:3000",
       "googleWebClientId": "403262111405-g8slek04455rta7o29l3q07grgp2f9rl.apps.googleusercontent.com",
       "router": {},
       "eas": {

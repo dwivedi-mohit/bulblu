@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bulblu Admin - Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 min-h-screen">
+  <!-- Header -->
+  <header class="bg-white border-b border-gray-200 px-6 py-4">
+    <div class="flex items-center justify-between max-w-7xl mx-auto">
+      <div class="flex items-center gap-3">
+        <h1 class="text-xl font-bold text-gray-900">Bulblu Admin</h1>
+        <span class="bg-teal-100 text-teal-700 text-xs font-semibold px-2 py-1 rounded-full">Companion Review</span>
+      </div>
+      <button onclick="logout()" class="text-sm text-gray-500 hover:text-red-600 transition">Logout</button>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto p-6">
+    <!-- Stats Cards -->
+    <div id="stats" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      <div class="bg-white rounded-xl p-5 border border-gray-100 shadow-sm">
+        <p class="text-sm text-gray-500">Pending Review</p>
+        <p id="statPending" class="text-3xl font-bold text-amber-600 mt-1">-</p>
+      </div>
+      <div class="bg-white rounded-xl p-5 border border-gray-100 shadow-sm">
+        <p class="text-sm text-gray-500">Approved</p>
+        <p id="statApproved" class="text-3xl font-bold text-green-600 mt-1">-</p>
+      </div>
+      <div class="bg-white rounded-xl p-5 border border-gray-100 shadow-sm">
+        <p class="text-sm text-gray-500">Rejected</p>
+        <p id="statRejected" class="text-3xl font-bold text-red-500 mt-1">-</p>
+      </div>
+      <div class="bg-white rounded-xl p-5 border border-gray-100 shadow-sm">
+        <p class="text-sm text-gray-500">Total Companions</p>
+        <p id="statCompanions" class="text-3xl font-bold text-teal-600 mt-1">-</p>
+      </div>
+    </div>
+
+    <!-- Filter Tabs -->
+    <div class="flex gap-2 mb-6">
+      <button onclick="filterApps('all')" class="filter-btn active px-4 py-2 rounded-lg text-sm font-semibold bg-teal-600 text-white" data-filter="all">All</button>
+      <button onclick="filterApps('PENDING_VERIFICATION')" class="filter-btn px-4 py-2 rounded-lg text-sm font-semibold bg-gray-100 text-gray-600 hover:bg-gray-200" data-filter="PENDING_VERIFICATION">Pending</button>
+      <button onclick="filterApps('APPROVED')" class="filter-btn px-4 py-2 rounded-lg text-sm font-semibold bg-gray-100 text-gray-600 hover:bg-gray-200" data-filter="APPROVED">Approved</button>
+      <button onclick="filterApps('REJECTED')" class="filter-btn px-4 py-2 rounded-lg text-sm font-semibold bg-gray-100 text-gray-600 hover:bg-gray-200" data-filter="REJECTED">Rejected</button>
+    </div>
+
+    <!-- Applications List -->
+    <div id="applications" class="space-y-3">
+      <p class="text-gray-500 text-center py-8">Loading applications...</p>
+    </div>
+
+    <!-- Pagination -->
+    <div id="pagination" class="flex justify-center gap-2 mt-6"></div>
+  </main>
+
+  <script>
+    let currentFilter = 'all';
+    let currentPage = 1;
+
+    function getToken() {
+      return localStorage.getItem('adminToken');
+    }
+
+    function logout() {
+      localStorage.removeItem('adminToken');
+      window.location.href = '/admin/';
+    }
+
+    function authHeaders() {
+      return { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` };
+    }
+
+    async function loadStats() {
+      try {
+        const res = await fetch('/api/admin/stats', { headers: authHeaders() });
+        if (res.status === 401 || res.status === 403) { logout(); return; }
+        const data = await res.json();
+        document.getElementById('statPending').textContent = data.applications.pending;
+        document.getElementById('statApproved').textContent = data.applications.approved;
+        document.getElementById('statRejected').textContent = data.applications.rejected;
+        document.getElementById('statCompanions').textContent = data.users.total_companions;
+      } catch (e) {
+        console.error('Failed to load stats:', e);
+      }
+    }
+
+    async function loadApplications(page = 1) {
+      currentPage = page;
+      const container = document.getElementById('applications');
+      container.innerHTML = '<p class="text-gray-500 text-center py-8">Loading...</p>';
+
+      try {
+        const params = new URLSearchParams({ page: String(page), limit: '15' });
+        if (currentFilter !== 'all') params.set('status', currentFilter);
+
+        const res = await fetch(`/api/admin/applications?${params}`, { headers: authHeaders() });
+        if (res.status === 401 || res.status === 403) { logout(); return; }
+        const data = await res.json();
+
+        if (data.applications.length === 0) {
+          container.innerHTML = '<p class="text-gray-500 text-center py-8">No applications found</p>';
+          document.getElementById('pagination').innerHTML = '';
+          return;
+        }
+
+        container.innerHTML = data.applications.map(app => `
+          <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-5 hover:shadow-md transition">
+            <div class="flex items-start justify-between">
+              <div class="flex items-start gap-4">
+                <img
+                  src="${app.pfp_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'}"
+                  alt="${app.display_name}"
+                  class="w-14 h-14 rounded-full object-cover border-2 border-gray-100"
+                />
+                <div>
+                  <div class="flex items-center gap-2">
+                    <h3 class="font-bold text-gray-900">${escapeHtml(app.display_name)}</h3>
+                    <span class="text-xs px-2 py-0.5 rounded-full font-semibold ${statusBadgeClass(app.status)}">${formatStatus(app.status)}</span>
+                  </div>
+                  <p class="text-sm text-gray-500">${escapeHtml(app.full_legal_name)} &middot; ${escapeHtml(app.email)}</p>
+                  <p class="text-sm text-gray-400 mt-1">${escapeHtml(app.city || 'Mumbai')} &middot; ${escapeHtml(app.services_offered?.[0] || 'N/A')}</p>
+                  <div class="flex items-center gap-4 mt-2 text-xs text-gray-400">
+                    <span>$${parseFloat(app.hourly_rate) || 25}/hr</span>
+                    <span>Applied ${timeAgo(app.created_at)}</span>
+                  </div>
+                </div>
+              </div>
+              <div class="flex gap-2">
+                <a href="/admin/application.html?id=${app.id}" class="px-3 py-1.5 text-sm font-semibold text-teal-600 bg-teal-50 rounded-lg hover:bg-teal-100 transition">View</a>
+                ${app.status === 'PENDING_VERIFICATION' ? `
+                  <button onclick="approveApp('${app.id}')" class="px-3 py-1.5 text-sm font-semibold text-white bg-green-600 rounded-lg hover:bg-green-700 transition">Approve</button>
+                  <button onclick="rejectApp('${app.id}')" class="px-3 py-1.5 text-sm font-semibold text-white bg-red-500 rounded-lg hover:bg-red-600 transition">Reject</button>
+                ` : ''}
+              </div>
+            </div>
+          </div>
+        `).join('');
+
+        // Pagination
+        const paginationHtml = [];
+        for (let i = 1; i <= data.totalPages; i++) {
+          paginationHtml.push(`
+            <button
+              onclick="loadApplications(${i})"
+              class="w-9 h-9 rounded-lg text-sm font-semibold ${i === currentPage ? 'bg-teal-600 text-white' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'} transition"
+            >${i}</button>
+          `);
+        }
+        document.getElementById('pagination').innerHTML = paginationHtml.join('');
+      } catch (e) {
+        container.innerHTML = '<p class="text-red-500 text-center py-8">Failed to load applications</p>';
+      }
+    }
+
+    function filterApps(filter) {
+      currentFilter = filter;
+      document.querySelectorAll('.filter-btn').forEach(btn => {
+        if (btn.dataset.filter === filter) {
+          btn.className = 'filter-btn active px-4 py-2 rounded-lg text-sm font-semibold bg-teal-600 text-white';
+        } else {
+          btn.className = 'filter-btn px-4 py-2 rounded-lg text-sm font-semibold bg-gray-100 text-gray-600 hover:bg-gray-200';
+        }
+      });
+      loadApplications(1);
+    }
+
+    async function approveApp(id) {
+      if (!confirm('Approve this companion application?')) return;
+      try {
+        const res = await fetch(`/api/admin/applications/${id}/approve`, {
+          method: 'PATCH',
+          headers: authHeaders(),
+        });
+        const data = await res.json();
+        if (res.ok) {
+          alert('Application approved!');
+          loadStats();
+          loadApplications(currentPage);
+        } else {
+          alert(data.error || 'Failed to approve');
+        }
+      } catch (e) {
+        alert('Network error');
+      }
+    }
+
+    async function rejectApp(id) {
+      const reason = prompt('Rejection reason (optional):');
+      if (reason === null) return;
+      try {
+        const res = await fetch(`/api/admin/applications/${id}/reject`, {
+          method: 'PATCH',
+          headers: authHeaders(),
+          body: JSON.stringify({ reason }),
+        });
+        const data = await res.json();
+        if (res.ok) {
+          alert('Application rejected');
+          loadStats();
+          loadApplications(currentPage);
+        } else {
+          alert(data.error || 'Failed to reject');
+        }
+      } catch (e) {
+        alert('Network error');
+      }
+    }
+
+    function statusBadgeClass(status) {
+      switch (status) {
+        case 'PENDING_VERIFICATION': return 'bg-amber-100 text-amber-700';
+        case 'APPROVED': return 'bg-green-100 text-green-700';
+        case 'REJECTED': return 'bg-red-100 text-red-600';
+        default: return 'bg-gray-100 text-gray-600';
+      }
+    }
+
+    function formatStatus(status) {
+      return status?.replace('_', ' ') || status;
+    }
+
+    function timeAgo(dateStr) {
+      const diff = Date.now() - new Date(dateStr).getTime();
+      const mins = Math.floor(diff / 60000);
+      if (mins < 60) return `${mins}m ago`;
+      const hours = Math.floor(mins / 60);
+      if (hours < 24) return `${hours}h ago`;
+      const days = Math.floor(hours / 24);
+      return `${days}d ago`;
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    // Init
+    if (!getToken()) { window.location.href = '/admin/'; }
+    else { loadStats(); loadApplications(); }
+  </script>
+</body>
+</html>

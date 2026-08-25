@@ -8,10 +8,11 @@ import {
   Image,
   Pressable,
   ActivityIndicator,
+  Share,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { Plus, Heart, MessageCircle, Share2, MoreHorizontal } from 'lucide-react-native';
+import { Plus, Heart, MessageCircle, Share2, MoreHorizontal, Bookmark } from 'lucide-react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -24,6 +25,7 @@ import { Colors } from '../../constants/colors';
 import { Spacing, Radius, Layout } from '../../constants/spacing';
 import { Typography } from '../../constants/typography';
 import { GlassCard } from '../../components/ui/GlassCard';
+import { DisplayName, Username, useCachedProfile } from '../../components/ui/UserText';
 
 type CommunityPost = Post;
 
@@ -212,7 +214,41 @@ function PostCard({
     scale.value = withSpring(1, { damping: 15, stiffness: 400 });
   };
 
+  const router = useRouter();
   const timeAgo = formatDistanceToNow(new Date(post.created_at), { addSuffix: true });
+
+  // Live avatar for the author, so a pfp change shows up without a refetch.
+  // Only consulted on the non-anonymous branch below.
+  const liveAvatar = useCachedProfile(post.user_id)?.avatar_url;
+  const authorAvatar = liveAvatar || post.user?.avatar_url;
+
+  const [liked, setLiked] = useState(false);
+  const [reactionCount, setReactionCount] = useState(post.reaction_count || 0);
+  const [saved, setSaved] = useState(false);
+
+  const handleLike = async () => {
+    setLiked(!liked);
+    setReactionCount((prev) => liked ? prev - 1 : prev + 1);
+    try { await postApi.react(post.id, '❤️'); } catch {
+      setLiked(liked);
+      setReactionCount(post.reaction_count || 0);
+    }
+  };
+
+  const handleSave = async () => {
+    setSaved(!saved);
+    try { await postApi.savePost(post.id); } catch { setSaved(saved); }
+  };
+
+  const handleComment = () => {
+    router.push(`/post/${post.id}`);
+  };
+
+  const handleShare = async () => {
+    try {
+      await Share.share({ message: post.content || 'Check out this post on Bulblu!' });
+    } catch {}
+  };
 
   return (
     <Animated.View style={animatedStyle}>
@@ -222,10 +258,16 @@ function PostCard({
             {post.is_anonymous ? (
               <AnonymousAvatar id={post.id} />
             ) : (
-              <View style={styles.userRow}>
-                {post.user?.avatar_url ? (
+              <Pressable
+                style={styles.userRow}
+                onPress={(e) => {
+                  e.stopPropagation();
+                  router.push(`/companion/${post.user_id || 'comp-1'}`);
+                }}
+              >
+                {authorAvatar ? (
                   <Image
-                    source={{ uri: post.user.avatar_url }}
+                    source={{ uri: authorAvatar }}
                     style={styles.userAvatar}
                   />
                 ) : (
@@ -236,12 +278,18 @@ function PostCard({
                   </View>
                 )}
                 <View>
-                  <Text style={styles.userName}>
-                    {post.user?.full_name || 'Unknown'}
-                  </Text>
-                  <Text style={styles.userHandle}>@{post.user?.username}</Text>
+                  <DisplayName
+                    userId={post.user_id}
+                    fallback={post.user?.full_name}
+                    style={styles.userName}
+                  />
+                  <Username
+                    userId={post.user_id}
+                    fallback={post.user?.username}
+                    style={styles.userHandle}
+                  />
                 </View>
-              </View>
+              </Pressable>
             )}
             <Pressable style={styles.moreButton}>
               <MoreHorizontal size={18} color={Colors.textTertiary} />
@@ -256,16 +304,19 @@ function PostCard({
 
           <View style={styles.postFooter}>
             <View style={styles.reactions}>
-              <Pressable style={styles.reactionButton}>
-                <Heart size={18} color={Colors.textTertiary} />
-                <Text style={styles.reactionCount}>{post.reaction_count}</Text>
+              <Pressable style={styles.reactionButton} onPress={handleLike}>
+                <Heart size={18} color={liked ? '#FF6B9D' : Colors.textTertiary} fill={liked ? '#FF6B9D' : 'transparent'} />
+                <Text style={[styles.reactionCount, liked && { color: '#FF6B9D' }]}>{reactionCount}</Text>
               </Pressable>
-              <Pressable style={styles.reactionButton}>
+              <Pressable style={styles.reactionButton} onPress={handleComment}>
                 <MessageCircle size={18} color={Colors.textTertiary} />
                 <Text style={styles.reactionCount}>{post.comment_count}</Text>
               </Pressable>
-              <Pressable style={styles.reactionButton}>
+              <Pressable style={styles.reactionButton} onPress={handleShare}>
                 <Share2 size={18} color={Colors.textTertiary} />
+              </Pressable>
+              <Pressable style={styles.reactionButton} onPress={handleSave}>
+                <Bookmark size={18} color={saved ? Colors.primary : Colors.textTertiary} fill={saved ? Colors.primary : 'transparent'} />
               </Pressable>
             </View>
             <Text style={styles.timestamp}>{timeAgo}</Text>

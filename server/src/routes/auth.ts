@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express';
+import bcrypt from 'bcryptjs';
 import { query } from '../config/database.js';
 import { authMiddleware, AuthRequest, generateToken } from '../middleware/auth.js';
 
@@ -109,9 +110,111 @@ router.post('/google', async (req: Request, res: Response) => {
   }
 });
 
+router.post('/demo', async (req: Request, res: Response) => {
+  try {
+    const demoEmail = 'demo@bulblu.com';
+    let user: any = null;
+
+    const existing = await query(
+      'SELECT id, email, full_name, username, avatar_url, bio, date_of_birth, gender, city, interests, looking_for, is_companion, is_verified, is_admin, settings, created_at FROM users WHERE email = $1',
+      [demoEmail]
+    );
+
+    if (existing.rows.length > 0) {
+      user = existing.rows[0];
+      await query(
+        `UPDATE users SET is_verified = true, is_admin = true, is_companion = true, last_active = NOW() WHERE id = $1`,
+        [user.id]
+      );
+    } else {
+      const result = await query(
+        `INSERT INTO users (email, full_name, username, password_hash, avatar_url, date_of_birth, gender, city, interests, looking_for, is_companion, is_verified, is_admin)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, true, true, true)
+         RETURNING id, email, full_name, username, avatar_url, bio, date_of_birth, gender, city, interests, looking_for, is_companion, is_verified, is_admin, settings, created_at`,
+        [
+          demoEmail,
+          'Alex Rivera',
+          'alex_rivera',
+          'DEMO_USER_PASSWORD',
+          'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=500&auto=format&fit=crop&q=80',
+          '1998-05-15',
+          'male',
+          'Mumbai',
+          ['Movies', 'Coffee', 'Music', 'Travel', 'Clubbing', 'Gaming'],
+          ['dating', 'friends', 'activity', 'companion'],
+        ]
+      );
+      user = result.rows[0];
+    }
+
+    // Seed active matches for demo user if none exist
+    try {
+      const companions = await query(
+        'SELECT id FROM users WHERE id != $1 LIMIT 3',
+        [user.id]
+      );
+      for (const companion of companions.rows) {
+        const userA = user.id < companion.id ? user.id : companion.id;
+        const userB = user.id < companion.id ? companion.id : user.id;
+
+        const matchCheck = await query(
+          'SELECT id FROM matches WHERE user_a_id = $1 AND user_b_id = $2',
+          [userA, userB]
+        );
+
+        let matchId: string;
+        if (matchCheck.rows.length === 0) {
+          const newMatch = await query(
+            'INSERT INTO matches (user_a_id, user_b_id, is_active) VALUES ($1, $2, true) RETURNING id',
+            [userA, userB]
+          );
+          matchId = newMatch.rows[0].id;
+        } else {
+          matchId = matchCheck.rows[0].id;
+        }
+
+        // Add welcome message if empty
+        const msgCheck = await query('SELECT id FROM messages WHERE match_id = $1 LIMIT 1', [matchId]);
+        if (msgCheck.rows.length === 0) {
+          await query(
+            `INSERT INTO messages (match_id, sender_id, content, message_type) VALUES ($1, $2, $3, 'text')`,
+            [matchId, companion.id, 'Hey Alex! Excited to connect on Bulblu ✨']
+          );
+        }
+      }
+    } catch (matchErr) {
+      console.warn('[DemoAuth] Match seeding warning:', matchErr);
+    }
+
+    const sessionToken = generateToken(user.id);
+    user.avatar_url = formatPublicUrl(user.avatar_url, req);
+
+    res.json({ token: sessionToken, user });
+  } catch (err: any) {
+    console.error('Demo auth error:', err);
+    res.status(500).json({ error: 'Failed to authenticate demo user: ' + err.message });
+  }
+});
+
 router.post('/logout', (_req: Request, res: Response) => {
   res.json({ message: 'Logged out successfully' });
 });
+
+function formatPublicUrl(url: string | null | undefined, req: Request): string {
+  if (!url || typeof url !== 'string' || !url.trim()) {
+    return 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=500&auto=format&fit=crop&q=80';
+  }
+  const trimmed = url.trim();
+  if (trimmed.startsWith('file://') || trimmed.startsWith('content://')) {
+    return 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=500&auto=format&fit=crop&q=80';
+  }
+  if (trimmed.startsWith('/uploads/')) {
+    const host = req.get('host') || 'localhost:3000';
+    const protocol = req.protocol || 'http';
+    return `${protocol}://${host}${trimmed}`;
+  }
+  return trimmed;
+}
 
 router.get('/me', authMiddleware, async (req: AuthRequest, res: Response) => {
   try {
@@ -127,7 +230,10 @@ router.get('/me', authMiddleware, async (req: AuthRequest, res: Response) => {
       return;
     }
 
-    res.json({ user: result.rows[0] });
+    const user = result.rows[0];
+    user.avatar_url = formatPublicUrl(user.avatar_url, req);
+
+    res.json({ user });
   } catch (err) {
     console.error('Get me error:', err);
     res.status(500).json({ error: 'Internal server error' });
@@ -138,7 +244,7 @@ router.put('/me', authMiddleware, async (req: AuthRequest, res: Response) => {
   try {
     const {
       name, username, bio, avatar_url, city, latitude, longitude,
-      interests, looking_for, is_companion, date_of_birth, gender
+      interests, looking_for, is_companion, date_of_birth, gender, settings
     } = req.body;
 
     const fields: string[] = [];
@@ -157,6 +263,7 @@ router.put('/me', authMiddleware, async (req: AuthRequest, res: Response) => {
     if (is_companion !== undefined) { fields.push(`is_companion = $${i++}`); values.push(is_companion); }
     if (date_of_birth !== undefined) { fields.push(`date_of_birth = $${i++}`); values.push(date_of_birth); }
     if (gender !== undefined) { fields.push(`gender = $${i++}`); values.push(gender); }
+    if (settings !== undefined) { fields.push(`settings = $${i++}`); values.push(settings); }
 
     if (fields.length === 0) {
       res.status(400).json({ error: 'No fields to update' });
@@ -178,7 +285,50 @@ router.put('/me', authMiddleware, async (req: AuthRequest, res: Response) => {
       return;
     }
 
-    res.json({ user: result.rows[0] });
+    // Synchronize updates across denormalized copies for platform-wide consistency
+    try {
+      if (avatar_url !== undefined) {
+        await query('UPDATE companion_applications SET pfp_url = $1 WHERE user_id = $2', [avatar_url, req.userId]);
+      }
+      if (name !== undefined) {
+        await query('UPDATE companion_applications SET display_name = $1 WHERE user_id = $2', [name, req.userId]);
+      }
+      if (bio !== undefined) {
+        await query('UPDATE companion_applications SET bio = $1 WHERE user_id = $2', [bio, req.userId]);
+        await query('UPDATE companion_profiles SET bio = $1 WHERE user_id = $2', [bio, req.userId]);
+      }
+      if (city !== undefined) {
+        await query('UPDATE companion_applications SET city = $1 WHERE user_id = $2', [city, req.userId]);
+      }
+    } catch (e) {
+      console.warn('Companion application sync warning:', e);
+    }
+
+    const updatedUser = result.rows[0];
+    updatedUser.avatar_url = formatPublicUrl(updatedUser.avatar_url, req);
+
+    // Broadcast every identity field that actually changed so all connected
+    // clients can update this user everywhere they render them. Only reached
+    // after a successful UPDATE, so a rejected username never propagates.
+    const broadcast: Record<string, string> = {};
+    if (avatar_url !== undefined) broadcast.avatar_url = updatedUser.avatar_url;
+    if (username !== undefined) broadcast.username = updatedUser.username;
+    if (name !== undefined) broadcast.full_name = updatedUser.full_name;
+    if (bio !== undefined) broadcast.bio = updatedUser.bio;
+    if (city !== undefined) broadcast.city = updatedUser.city;
+    if (interests !== undefined) broadcast.interests = JSON.stringify(updatedUser.interests);
+    if (looking_for !== undefined) broadcast.looking_for = JSON.stringify(updatedUser.looking_for);
+    if (gender !== undefined) broadcast.gender = updatedUser.gender;
+    if (date_of_birth !== undefined) broadcast.date_of_birth = updatedUser.date_of_birth;
+
+    if (Object.keys(broadcast).length > 0) {
+      const io = req.app.get('io');
+      if (io) {
+        io.emit('profile:update', { userId: req.userId, ...broadcast });
+      }
+    }
+
+    res.json({ user: updatedUser });
   } catch (err: any) {
     if (err.code === '23505') {
       res.status(409).json({ error: 'Username already taken' });
@@ -208,6 +358,46 @@ router.post('/check-username', async (req: Request, res: Response) => {
   } catch (err) {
     console.error('Check username error:', err);
     res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// POST /api/auth/change-password
+router.post('/change-password', authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    if (!currentPassword || !newPassword || newPassword.length < 6) {
+      res.status(400).json({ error: 'New password must be at least 6 characters' });
+      return;
+    }
+
+    const userRes = await query('SELECT password_hash FROM users WHERE id = $1', [req.userId]);
+    if (userRes.rows.length === 0) {
+      res.status(404).json({ error: 'User not found' });
+      return;
+    }
+
+    const isMatch = await bcrypt.compare(currentPassword, userRes.rows[0].password_hash);
+    if (!isMatch && userRes.rows[0].password_hash !== 'GOOGLE_OAUTH_USER') {
+      res.status(400).json({ error: 'Incorrect current password' });
+      return;
+    }
+
+    const hashed = await bcrypt.hash(newPassword, 10);
+    await query('UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2', [hashed, req.userId]);
+
+    res.json({ success: true, message: 'Password changed successfully' });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to change password' });
+  }
+});
+
+// DELETE /api/auth/account
+router.delete('/account', authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    await query('DELETE FROM users WHERE id = $1', [req.userId]);
+    res.json({ success: true, message: 'Account deleted successfully' });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to delete account' });
   }
 });
 

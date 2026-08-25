@@ -9,6 +9,7 @@ import { Spacing, Radius } from '../../constants/spacing';
 import { Typography } from '../../constants/typography';
 import { GlassCard } from '../../components/ui/GlassCard';
 import { Avatar } from '../../components/ui/Avatar';
+import { DisplayName } from '../../components/ui/UserText';
 
 type Tab = 'upcoming' | 'past';
 
@@ -112,16 +113,25 @@ export default function BookingHistoryScreen() {
           </View>
         ) : (
           displayedBookings.map((booking) => {
-            const companion = booking.companion;
-            const user = companion?.user;
+            const b = booking as any;
+            // GET /api/companions/bookings returns flat rows (companion_user_id,
+            // companion_full_name, ...), not a nested companion.user object, so
+            // read the flat columns and fall back to the nested shape.
+            const companionUserId = b.companion_user_id ?? b.companion?.user?.id;
+            const companionName = b.companion_full_name ?? b.companion?.user?.full_name;
+            const companionAvatar = b.companion_avatar ?? b.companion?.user?.avatar_url ?? null;
             const status = STATUS_COLORS[booking.status] ?? STATUS_COLORS.pending;
 
             return (
               <GlassCard key={booking.id} variant="elevated" style={styles.bookingCard}>
                 <View style={styles.bookingRow}>
-                  <Avatar uri={user?.avatar_url ?? null} size="md" />
+                   <Avatar uri={companionAvatar} userId={companionUserId} size="md" />
                   <View style={styles.bookingInfo}>
-                    <Text style={styles.companionName}>{user?.full_name ?? 'Companion'}</Text>
+                    <DisplayName
+                      userId={companionUserId}
+                      fallback={companionName ?? 'Companion'}
+                      style={styles.companionName}
+                    />
                     <Text style={styles.activity}>{booking.activity}</Text>
                   </View>
                   <View style={[styles.statusBadge, { backgroundColor: status.bg }]}>

@@ -41,3 +41,11 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# temporary logs & scratch
+*.log
+scratch/
+.reticle/
+server/uploads/*
+!server/uploads/.gitkeep
+

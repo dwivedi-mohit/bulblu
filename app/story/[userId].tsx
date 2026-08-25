@@ -27,6 +27,7 @@ import { Colors } from '../../constants/colors';
 import { Spacing, Radius } from '../../constants/spacing';
 import { Typography } from '../../constants/typography';
 import { Avatar } from '../../components/ui/Avatar';
+import { useCachedProfile } from '../../components/ui/UserText';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const STORY_DURATION = 5000;
@@ -113,6 +114,10 @@ export default function StoryViewerScreen() {
 
   const story = storyUsers[userId ?? ''] ?? Object.values(storyUsers)[0];
   const segments = story?.segments ?? [];
+
+  // Live identity for the story author (also used in the reply placeholder).
+  const liveAuthor = useCachedProfile(story?.id);
+  const authorName = liveAuthor?.full_name || story?.name;
 
   const currentSegment = segments[currentIndex];
 
@@ -289,9 +294,9 @@ export default function StoryViewerScreen() {
             </Pressable>
 
             <View style={styles.userInfo}>
-              <Avatar uri={story.avatarUri} size="sm" showStory />
+              <Avatar uri={story.avatarUri} userId={story.id} size="sm" showStory />
               <View style={styles.userDetails}>
-                <Text style={styles.userName}>{story.name}</Text>
+                <Text style={styles.userName}>{authorName}</Text>
                 <Text style={styles.timestamp}>
                   {formatTimestamp(currentSegment.created_at)}
                 </Text>
@@ -313,7 +318,7 @@ export default function StoryViewerScreen() {
             <View style={styles.replyContainer}>
               <TextInput
                 style={styles.replyInput}
-                placeholder={`Reply to ${story.name}...`}
+                placeholder={`Reply to ${authorName}...`}
                 placeholderTextColor={Colors.textTertiary}
                 value={replyText}
                 onChangeText={setReplyText}

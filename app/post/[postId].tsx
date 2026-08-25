@@ -27,6 +27,7 @@ import { Colors } from '../../constants/colors';
 import { Spacing, Radius } from '../../constants/spacing';
 import { Typography } from '../../constants/typography';
 import { GlassCard } from '../../components/ui/GlassCard';
+import { useAuthStore } from '../../stores/authStore';
 
 type PostDetail = Post;
 type CommentWithUser = Comment;
@@ -92,8 +93,17 @@ export default function PostDetailScreen() {
   const handleReaction = useCallback(async (emoji: string) => {
     if (!postId) return;
     try {
-      await postApi.react(postId, emoji);
-      setPost((prev) => prev ? { ...prev, reaction_count: prev.reaction_count + 1 } : prev);
+      const { data } = await postApi.react(postId, emoji);
+      setPost((prev) => {
+        if (!prev) return prev;
+        const action = data?.action;
+        return {
+          ...prev,
+          reaction_count: action === 'removed'
+            ? Math.max(prev.reaction_count - 1, 0)
+            : prev.reaction_count + 1,
+        };
+      });
     } catch {
       // ignore
     }
@@ -119,12 +129,28 @@ export default function PostDetailScreen() {
     }
   }, [newComment, postId]);
 
+  const handleDeleteComment = useCallback(async (commentId: string) => {
+    if (!postId) return;
+    Alert.alert('Delete Comment', 'Are you sure?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete', style: 'destructive', onPress: async () => {
+          try {
+            await postApi.deleteComment(postId, commentId);
+            setComments((prev) => prev.filter((c) => c.id !== commentId));
+            setPost((prev) => prev ? { ...prev, comment_count: Math.max(prev.comment_count - 1, 0) } : prev);
+          } catch {}
+        }
+      },
+    ]);
+  }, [postId]);
+
   const timeAgo = post
     ? formatDistanceToNow(new Date(post.created_at), { addSuffix: true })
     : '';
 
   const renderComment = ({ item }: { item: CommentWithUser }) => (
-    <CommentItem comment={item} />
+    <CommentItem comment={item} onDelete={handleDeleteComment} />
   );
 
   const ListHeader = () => {
@@ -289,8 +315,10 @@ function ReactionButton({
   );
 }
 
-function CommentItem({ comment }: { comment: CommentWithUser }) {
+function CommentItem({ comment, onDelete }: { comment: CommentWithUser; onDelete?: (commentId: string) => void }) {
   const timeAgo = formatDistanceToNow(new Date(comment.created_at), { addSuffix: true });
+  const currentUserId = useAuthStore((s) => s.user?.id);
+  const isOwn = comment.user_id === currentUserId;
 
   return (
     <View style={styles.commentItem}>
@@ -316,7 +344,14 @@ function CommentItem({ comment }: { comment: CommentWithUser }) {
         </View>
       )}
       <Text style={styles.commentContent}>{comment.content}</Text>
-      <Text style={styles.commentTimestamp}>{timeAgo}</Text>
+      <View style={styles.commentFooter}>
+        <Text style={styles.commentTimestamp}>{timeAgo}</Text>
+        {isOwn && onDelete && (
+          <Pressable onPress={() => onDelete(comment.id)} style={styles.commentDeleteBtn}>
+            <Text style={styles.commentDeleteText}>Delete</Text>
+          </Pressable>
+        )}
+      </View>
     </View>
   );
 }
@@ -511,6 +546,21 @@ const styles = StyleSheet.create({
   commentTimestamp: {
     ...Typography.tabBar,
     color: Colors.textTertiary,
+  },
+  commentFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 2,
+  },
+  commentDeleteBtn: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  commentDeleteText: {
+    fontSize: 11,
+    fontFamily: 'SpaceGrotesk-Medium',
+    color: '#EF4444',
   },
   inputContainer: {
     flexDirection: 'row',

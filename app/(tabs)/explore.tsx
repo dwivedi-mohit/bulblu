@@ -1,75 +1,94 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, Pressable,
-  TextInput, RefreshControl, ActivityIndicator, Dimensions,
-  Modal, TouchableOpacity,
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TextInput,
+  RefreshControl,
+  ActivityIndicator,
+  Dimensions,
+  TouchableOpacity,
+  Image,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Search, SlidersHorizontal, Mic, Video, Dice5, Target, ChevronRight, Wifi } from 'lucide-react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
+import { formatDistanceToNow } from 'date-fns';
 import { Colors } from '../../constants/colors';
 import { Spacing, Radius } from '../../constants/spacing';
-import { Typography } from '../../constants/typography';
 import { Avatar } from '../../components/ui/Avatar';
+import { DisplayName } from '../../components/ui/UserText';
 import { StoryRing } from '../../components/ui/StoryRing';
-import { matchApi, storyApi, voiceRoomApi } from '../../lib/services';
+import { matchApi, storyApi, voiceRoomApi, notificationApi, postApi } from '../../lib/services';
 import { useAuthStore } from '../../stores/authStore';
+import { useCallStore } from '../../stores/callStore';
 import type { User, Story, VoiceRoom } from '../../types/database';
-import { useRouter } from 'expo-router';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const GRID_CARD_WIDTH = (SCREEN_WIDTH - Spacing.lg * 2 - 12) / 2;
+const GRID_CARD_HEIGHT = GRID_CARD_WIDTH / 2.5;
+const HERO_CARD_HEIGHT = (SCREEN_WIDTH - Spacing.lg * 2) / 2.49;
 
-const PARTY_GAMES = [
-  { icon: 'mic', label: 'Voice Party', color: '#8B5CF6', bg: 'rgba(139,92,246,0.1)' },
-  { icon: 'videocam', label: 'Video Match', color: '#F43F5E', bg: 'rgba(244,63,94,0.1)' },
-  { icon: 'dice', label: 'Ludo Party', color: '#F59E0B', bg: 'rgba(245,158,11,0.1)' },
-  { icon: 'target', label: 'Truth & Dare', color: '#10B981', bg: 'rgba(16,185,129,0.1)' },
-];
-
-function getGameIcon(icon: string) {
-  switch (icon) {
-    case 'mic': return <Mic size={24} />;
-    case 'videocam': return <Video size={24} />;
-    case 'dice': return <Dice5 size={24} />;
-    case 'target': return <Target size={24} />;
-    default: return <Mic size={24} />;
-  }
+interface PostItem {
+  id: string;
+  user_id: string;
+  user?: User;
+  content: string;
+  media_url?: string;
+  media_type?: string;
+  created_at: string;
+  likes_count?: number;
+  comments_count?: number;
+  is_liked?: boolean;
 }
 
 export default function ExploreScreen() {
   const user = useAuthStore((s) => s.user);
-  const signOut = useAuthStore((s) => s.signOut);
   const router = useRouter();
+  const startCall = useCallStore((s) => s.startCall);
+
   const [searchQuery, setSearchQuery] = useState('');
+  const [searchOpen, setSearchOpen] = useState(false);
+
   const [people, setPeople] = useState<User[]>([]);
   const [stories, setStories] = useState<Story[]>([]);
   const [rooms, setRooms] = useState<VoiceRoom[]>([]);
+  const [posts, setPosts] = useState<PostItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [showProfileModal, setShowProfileModal] = useState(false);
+
+  const storeNotificationCount = useAuthStore((s) => s.notificationCount);
+  const [unreadCount, setUnreadCount] = useState(storeNotificationCount);
 
   const fetchData = useCallback(async () => {
     try {
-      const [discoverRes, storiesRes, roomsRes] = await Promise.allSettled([
+      const [discoverRes, storiesRes, roomsRes, postsRes] = await Promise.allSettled([
         matchApi.getDiscover(),
         storyApi.getStories(),
         voiceRoomApi.getRooms(),
+        postApi.getFeed(),
       ]);
 
-      if (discoverRes.status === 'fulfilled' && discoverRes.value.data) {
-        const val = discoverRes.value.data;
+      if (discoverRes.status === 'fulfilled' && (discoverRes.value as any)?.data) {
+        const val = (discoverRes.value as any).data;
         setPeople(Array.isArray(val) ? val : []);
       }
-      if (storiesRes.status === 'fulfilled' && storiesRes.value.data) {
-        const val = storiesRes.value.data;
+      if (storiesRes.status === 'fulfilled' && (storiesRes.value as any)?.data) {
+        const val = (storiesRes.value as any).data;
         if (Array.isArray(val)) setStories(val);
         else if (val && typeof val === 'object') setStories(Object.values(val).flat() as Story[]);
         else setStories([]);
       }
-      if (roomsRes.status === 'fulfilled' && roomsRes.value.data) {
-        const val = roomsRes.value.data;
+      if (roomsRes.status === 'fulfilled' && (roomsRes.value as any)?.data) {
+        const val = (roomsRes.value as any).data;
         setRooms(Array.isArray(val) ? val : []);
+      }
+      if (postsRes.status === 'fulfilled' && (postsRes.value as any)?.data) {
+        const val = (postsRes.value as any).data;
+        setPosts(Array.isArray(val) ? val : []);
       }
     } catch {
       // ignore
@@ -79,12 +98,57 @@ export default function ExploreScreen() {
     }
   }, []);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  const fetchUnreadCount = useCallback(async () => {
+    try {
+      const { data } = await notificationApi.getUnreadCount();
+      if (data?.success) {
+        setUnreadCount(data.count);
+        useAuthStore.getState().setNotificationCount(data.count);
+      }
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    fetchUnreadCount();
+  }, [fetchUnreadCount]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
     fetchData();
   }, [fetchData]);
+
+  const handleLikePost = (postId: string) => {
+    setPosts((prev) =>
+      prev.map((p) => {
+        if (p.id === postId) {
+          const isLiked = !p.is_liked;
+          return {
+            ...p,
+            is_liked: isLiked,
+            likes_count: (p.likes_count ?? 0) + (isLiked ? 1 : -1),
+          };
+        }
+        return p;
+      })
+    );
+    postApi.react(postId, '❤️').catch(() => {});
+  };
+
+  const handleQuickCall = (targetUser: User, type: 'voice' | 'video') => {
+    startCall(
+      {
+        id: targetUser.id,
+        name: targetUser.full_name || 'Companion',
+        avatar: targetUser.avatar_url || undefined,
+        matchId: `match_${targetUser.id}`,
+      },
+      type
+    );
+  };
 
   const myStory = user
     ? { id: 'me', user_id: user.id, media_url: '', media_type: 'image' as const, expires_at: '', created_at: '', user, viewed: false }
@@ -96,20 +160,68 @@ export default function ExploreScreen() {
     ...safeStories.map((s) => ({ ...s, _isMe: false })),
   ];
 
+  const firstName = user?.full_name ? user.full_name.split(' ')[0] : 'Mohit';
+
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
-      {/* Header */}
+      {/* 1. Header (Reference Design matching media_1787414786603.jpg) */}
       <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <Text style={styles.logo}>bulblu</Text>
-        </View>
-        <TouchableOpacity
-          style={styles.headerAvatar}
-          onPress={() => setShowProfileModal(true)}
-          activeOpacity={0.7}
-        >
-          <Avatar uri={user?.avatar_url ?? null} size="sm" />
-        </TouchableOpacity>
+        {searchOpen ? (
+          <View style={styles.searchHeaderBox}>
+            <Ionicons name="search" size={17} color="#64748B" style={{ marginRight: 8 }} />
+            <TextInput
+              style={styles.searchHeaderInput}
+              placeholder="Search party rooms, games, friends..."
+              placeholderTextColor="#94A3B8"
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              autoFocus
+            />
+            <TouchableOpacity onPress={() => { setSearchQuery(''); setSearchOpen(false); }}>
+              <Ionicons name="close" size={20} color="#64748B" />
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <>
+            {/* User Greeting Box */}
+            <View style={styles.headerLeftRow}>
+              <TouchableOpacity
+                style={styles.userAvatarWrap}
+                onPress={() => router.push(`/companion/${user?.id || 'demo_user_1'}`)}
+              >
+                <Avatar uri={user?.avatar_url ?? null} userId={user?.id} size="sm" showOnline={true} isOnline={true} />
+              </TouchableOpacity>
+              <View style={styles.headerGreetingBox}>
+                <Text style={styles.greetingTitle}>Hey {firstName}! 👋</Text>
+                <Text style={styles.greetingSub}>Let's play & make new friends</Text>
+              </View>
+            </View>
+
+            {/* Action Buttons */}
+            <View style={styles.headerRightRow}>
+              <TouchableOpacity
+                style={styles.headerIconBtn}
+                onPress={() => setSearchOpen(true)}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="search-outline" size={21} color="#0F172A" />
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.headerIconBtn}
+                onPress={() => router.push('/notifications' as any)}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="notifications-outline" size={21} color="#0F172A" />
+                {unreadCount > 0 && (
+                  <View style={styles.bellBadge}>
+                    <Text style={styles.bellBadgeText}>{unreadCount > 99 ? '99+' : unreadCount}</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            </View>
+          </>
+        )}
       </View>
 
       <ScrollView
@@ -117,202 +229,616 @@ export default function ExploreScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} colors={[Colors.primary]} />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor="#0F766E"
+            colors={['#0F766E']}
+          />
         }
       >
         {loading ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={Colors.primary} />
-            <Text style={styles.loadingText}>Exploring...</Text>
+            <ActivityIndicator size="large" color="#0F766E" />
+            <Text style={styles.loadingText}>Loading Bulblu Party...</Text>
           </View>
         ) : (
           <>
-            {/* Hero Banner */}
-            <View style={styles.heroSection}>
-              <LinearGradient
-                colors={Colors.gradientHero}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.heroBanner}
-              >
-                <View style={styles.heroBadge}>
-                  <Text style={styles.heroBadgeText}>Welcome to Bulblu Hub</Text>
-                </View>
-                <Text style={styles.heroTitle}>Discover{'\n'}New Friends</Text>
-                <Text style={styles.heroSubtitle}>
-                  Connect, play games, and join live voice rooms
-                </Text>
-                <Pressable style={styles.heroButton}>
-                  <Text style={styles.heroButtonText}>Explore Now</Text>
-                  <ChevronRight size={16} color="#FFFFFF" />
-                </Pressable>
-              </LinearGradient>
-            </View>
-
-            {/* Search Bar */}
-            <View style={styles.searchSection}>
-              <View style={styles.searchContainer}>
-                <Search size={18} color={Colors.textTertiary} />
-                <TextInput
-                  style={styles.searchInput}
-                  placeholder="Search people, rooms, posts..."
-                  placeholderTextColor={Colors.textTertiary}
-                  value={searchQuery}
-                  onChangeText={setSearchQuery}
-                />
-              </View>
-              <Pressable style={styles.filterButton}>
-                <SlidersHorizontal size={20} color={Colors.textPrimary} />
-              </Pressable>
-            </View>
-
-            {/* Stories / Live Companion Reel */}
-            {storyItems.length > 0 && (
-              <View style={styles.section}>
-                <View style={styles.sectionHeader}>
-                  <Text style={styles.sectionTitle}>Live Companions</Text>
-                  <Pressable>
-                    <Text style={styles.seeAll}>See all</Text>
-                  </Pressable>
-                </View>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.storiesRow}>
-                  {storyItems.map((story) => (
-                    <Pressable key={story.id} style={styles.storyItem}>
-                      <StoryRing viewed={(story as any).viewed ?? false} size={68}>
-                        <Avatar uri={story.user?.avatar_url ?? null} size="sm" />
-                      </StoryRing>
-                      <Text style={styles.storyName} numberOfLines={1}>
-                        {(story as any)._isMe ? 'You' : story.user?.full_name ?? 'Unknown'}
-                      </Text>
-                    </Pressable>
-                  ))}
-                </ScrollView>
-              </View>
-            )}
-
-            {/* Party Games Grid */}
-            <View style={styles.section}>
-              <View style={styles.sectionHeader}>
-                <Text style={styles.sectionTitle}>Party Games</Text>
-              </View>
-              <View style={styles.gamesGrid}>
-                {PARTY_GAMES.map((game) => (
-                  <Pressable key={game.label} style={styles.gameCard}>
-                    <View style={[styles.gameIcon, { backgroundColor: game.bg }]}>
-                      {getGameIcon(game.icon)}
-                    </View>
-                    <Text style={styles.gameLabel}>{game.label}</Text>
-                  </Pressable>
+            {/* 1. Stories / Reels Bar (Top Priority) */}
+            <View style={styles.storiesBar}>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.storiesScroll}>
+                {storyItems.map((story) => (
+                  <TouchableOpacity
+                    key={story.id}
+                    style={styles.storyItem}
+                    onPress={() => router.push(`/companion/${story.user_id || story.id || 'comp-1'}`)}
+                    activeOpacity={0.85}
+                  >
+                    <StoryRing viewed={(story as any).viewed ?? false} size={58}>
+                      <Avatar
+                        uri={story.user?.avatar_url ?? null}
+                        userId={story.user?.id}
+                        size="md"
+                        showOnline={true}
+                        isOnline={story.user?.is_online}
+                      />
+                    </StoryRing>
+                    {(story as any)._isMe ? (
+                      <Text style={styles.storyName} numberOfLines={1}>Your Story</Text>
+                    ) : (
+                      <DisplayName
+                        userId={story.user?.id}
+                        fallback={story.user?.full_name}
+                        style={styles.storyName}
+                        numberOfLines={1}
+                      />
+                    )}
+                  </TouchableOpacity>
                 ))}
+              </ScrollView>
+            </View>
+
+            {/* 2. Party Games Section Header */}
+            <View style={styles.sectionHeaderRow}>
+              <View style={styles.sectionTitleRow}>
+                <Ionicons name="game-controller" size={20} color="#0F766E" />
+                <Text style={styles.sectionHeaderTitle}>Party Games</Text>
+              </View>
+              <TouchableOpacity onPress={() => router.push('/(tabs)/rent')}>
+                <Text style={styles.seeAllText}>See all &gt;</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* 3. Hero Feature Card (1v1 Video - Soft Lavender Theme) */}
+            <View style={styles.heroSection}>
+              <TouchableOpacity
+                style={[styles.heroCardTouch, { backgroundColor: '#EDE7F6' }]}
+                onPress={() => router.push('/(tabs)/video')}
+                activeOpacity={0.9}
+              >
+                <Image
+                  source={require('../../assets/images/ref_video.jpg')}
+                  style={styles.heroCardImage}
+                  resizeMode="contain"
+                />
+              </TouchableOpacity>
+            </View>
+
+            {/* 4. WePlay 2-Column Games Grid (3 Balanced Rows of 6 Cards) */}
+            <View style={styles.gridSection}>
+              {/* Row 1: Ludo Party (Cyan) + Truth & Dare (Pink) */}
+              <View style={styles.gridRow}>
+                <TouchableOpacity
+                  style={[styles.gridCardTouch, { backgroundColor: '#E0F7FA' }]}
+                  onPress={() => router.push('/game/ludo_party_room_1' as any)}
+                  activeOpacity={0.9}
+                >
+                  <Image
+                    source={require('../../assets/images/ref_ludo.jpg')}
+                    style={styles.gridCardImage}
+                    resizeMode="contain"
+                  />
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.gridCardTouch, { backgroundColor: '#FCE4EC' }]}
+                  onPress={() => router.push('/(tabs)/rent')}
+                  activeOpacity={0.9}
+                >
+                  <Image
+                    source={require('../../assets/images/ref_truth.jpg')}
+                    style={styles.gridCardImage}
+                    resizeMode="contain"
+                  />
+                </TouchableOpacity>
+              </View>
+
+              {/* Row 2: Draw & Guess (Gold) + Jackaro (Crimson) */}
+              <View style={styles.gridRow}>
+                <TouchableOpacity
+                  style={[styles.gridCardTouch, { backgroundColor: '#FFF8E1' }]}
+                  onPress={() => router.push('/(tabs)/rent')}
+                  activeOpacity={0.9}
+                >
+                  <Image
+                    source={require('../../assets/images/ref_draw.jpg')}
+                    style={styles.gridCardImage}
+                    resizeMode="contain"
+                  />
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.gridCardTouch, { backgroundColor: '#E0F2F1' }]}
+                  onPress={() => router.push('/(tabs)/rent')}
+                  activeOpacity={0.9}
+                >
+                  <Image
+                    source={require('../../assets/images/ref_jackaro.jpg')}
+                    style={styles.gridCardImage}
+                    resizeMode="contain"
+                  />
+                </TouchableOpacity>
+              </View>
+
+              {/* Row 3: UNO (Lavender) + Singing & Karaoke (Peach Coral) */}
+              <View style={styles.gridRow}>
+                <TouchableOpacity
+                  style={[styles.gridCardTouch, { backgroundColor: '#F3E5F5' }]}
+                  onPress={() => router.push('/(tabs)/rent')}
+                  activeOpacity={0.9}
+                >
+                  <Image
+                    source={require('../../assets/images/ref_uno.jpg')}
+                    style={styles.gridCardImage}
+                    resizeMode="contain"
+                  />
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.gridCardTouch, { backgroundColor: '#FFF3E0' }]}
+                  onPress={() => router.push('/(tabs)/voice')}
+                  activeOpacity={0.9}
+                >
+                  <Image
+                    source={require('../../assets/images/ref_singing.jpg')}
+                    style={styles.gridCardImage}
+                    resizeMode="contain"
+                  />
+                </TouchableOpacity>
               </View>
             </View>
 
-            {/* Online People */}
-            {people.length > 0 && (
-              <View style={styles.section}>
-                <View style={styles.sectionHeader}>
-                  <Text style={styles.sectionTitle}>Online Now</Text>
-                  <Text style={styles.count}>{people.length} people</Text>
-                </View>
-                <View style={styles.peopleGrid}>
-                  {people.slice(0, 6).map((person) => (
-                    <Pressable key={person.id} style={styles.personCard}>
-                      <Avatar uri={person.avatar_url} size="lg" showOnline={person.is_online} />
-                      <Text style={styles.personName} numberOfLines={1}>
-                        {person.full_name}
-                      </Text>
-                    </Pressable>
-                  ))}
-                </View>
-              </View>
-            )}
+            {/* 5. Featured Bottom Hero Card (Voice Party 4K Banner - Fresh Mint Theme) */}
+            <View style={[styles.heroSection, { marginTop: 10 }]}>
+              <TouchableOpacity
+                style={[styles.heroCardTouch, { backgroundColor: '#E8F5E9' }]}
+                onPress={() => router.push('/(tabs)/voice')}
+                activeOpacity={0.9}
+              >
+                <Image
+                  source={require('../../assets/images/ref_voice.jpg')}
+                  style={styles.heroCardImage}
+                  resizeMode="contain"
+                />
+              </TouchableOpacity>
+            </View>
 
-            {/* Active Rooms */}
-            {rooms.length > 0 && (
-              <View style={styles.section}>
-                <View style={styles.sectionHeader}>
-                  <Text style={styles.sectionTitle}>Live Voice Rooms</Text>
-                  <Pressable>
-                    <Text style={styles.seeAll}>See all</Text>
-                  </Pressable>
+            {/* 5. Live Voice Rooms Section (Redesigned Modern Glassmorphism UI) */}
+            <View style={styles.section}>
+              <View style={styles.sectionHeaderRow}>
+                <View style={styles.sectionTitleRow}>
+                  <Ionicons name="radio" size={20} color="#0F766E" />
+                  <Text style={styles.sectionHeaderTitle}>Live Voice Rooms</Text>
                 </View>
-                {rooms.slice(0, 3).map((room) => (
-                  <Pressable key={room.id} style={styles.roomCard}>
-                    <View style={styles.roomIcon}>
-                      <Mic size={20} color={Colors.primary} />
+                <TouchableOpacity onPress={() => router.push('/(tabs)/voice')}>
+                  <Text style={styles.seeAllText}>See all &gt;</Text>
+                </TouchableOpacity>
+              </View>
+
+              {rooms.length > 0 ? (
+                rooms.slice(0, 3).map((room) => (
+                  <TouchableOpacity
+                    key={room.id}
+                    style={styles.roomCardWrapper}
+                    onPress={() => router.push('/(tabs)/voice')}
+                    activeOpacity={0.88}
+                  >
+                    <LinearGradient
+                      colors={['#F0FDFA', '#F8FAFC']}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                      style={styles.roomCardGradient}
+                    >
+                      {/* Top Meta Badge Row */}
+                      <View style={styles.roomTopMetaRow}>
+                        <View style={styles.livePillBadge}>
+                          <View style={styles.livePulseDot} />
+                          <Text style={styles.livePillText}>LIVE</Text>
+                        </View>
+                        <View style={styles.tagPillBadge}>
+                          <Ionicons name="musical-notes" size={11} color="#0F766E" />
+                          <Text style={styles.tagPillText}>Music & Chill</Text>
+                        </View>
+                        <Text style={styles.listenerCountText}>{room.participant_count ?? 38} listening</Text>
+                      </View>
+
+                      {/* Main Room Details */}
+                      <View style={styles.roomMainRow}>
+                        {/* Mic Icon Box */}
+                        <View style={styles.roomMicAvatarBox}>
+                          <LinearGradient
+                            colors={['#0F766E', '#14B8A6']}
+                            style={styles.roomMicGradientCircle}
+                          >
+                            <Ionicons name="mic" size={22} color="#FFFFFF" />
+                          </LinearGradient>
+                        </View>
+
+                        {/* Text Details */}
+                        <View style={styles.roomDetailsTextCol}>
+                          <Text style={styles.roomTitleText} numberOfLines={1}>
+                            {room.topic}
+                          </Text>
+                          <Text style={styles.roomHostSubText} numberOfLines={1}>
+                            Host: @{room.host_id ? 'voice_host' : 'aria_music'} • Drop in to talk & sing
+                          </Text>
+                        </View>
+
+                        {/* Join CTA Button */}
+                        <TouchableOpacity
+                          style={styles.joinCtaTouch}
+                          onPress={() => router.push('/(tabs)/voice')}
+                        >
+                          <LinearGradient
+                            colors={['#0F766E', '#0D9488']}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 0 }}
+                            style={styles.joinCtaGradient}
+                          >
+                            <Text style={styles.joinCtaText}>Join</Text>
+                            <Ionicons name="play" size={10} color="#FFFFFF" />
+                          </LinearGradient>
+                        </TouchableOpacity>
+                      </View>
+                    </LinearGradient>
+                  </TouchableOpacity>
+                ))
+              ) : (
+                <TouchableOpacity
+                  style={styles.roomCardWrapper}
+                  onPress={() => router.push('/(tabs)/voice')}
+                  activeOpacity={0.88}
+                >
+                  <LinearGradient
+                    colors={['#F0FDFA', '#F8FAFC']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.roomCardGradient}
+                  >
+                    {/* Top Meta Badge Row */}
+                    <View style={styles.roomTopMetaRow}>
+                      <View style={styles.livePillBadge}>
+                        <View style={styles.livePulseDot} />
+                        <Text style={styles.livePillText}>LIVE</Text>
+                      </View>
+                      <View style={styles.tagPillBadge}>
+                        <Ionicons name="musical-notes" size={11} color="#0F766E" />
+                        <Text style={styles.tagPillText}>Karaoke & Chill</Text>
+                      </View>
+                      <Text style={styles.listenerCountText}>{38} listening</Text>
                     </View>
-                    <View style={styles.roomInfo}>
-                      <Text style={styles.roomTopic}>{room.topic}</Text>
-                      <View style={styles.roomMeta}>
-                        <Wifi size={12} color={Colors.accentGreen} />
-                        <Text style={styles.roomParticipants}>
-                          {room.participant_count ?? 0} participants
+
+                    {/* Main Room Details */}
+                    <View style={styles.roomMainRow}>
+                      {/* Mic Icon Box */}
+                      <View style={styles.roomMicAvatarBox}>
+                        <LinearGradient
+                          colors={['#0F766E', '#14B8A6']}
+                          style={styles.roomMicGradientCircle}
+                        >
+                          <Ionicons name="mic" size={22} color="#FFFFFF" />
+                        </LinearGradient>
+                      </View>
+
+                      {/* Text Details */}
+                      <View style={styles.roomDetailsTextCol}>
+                        <Text style={styles.roomTitleText} numberOfLines={1}>
+                          Late Night Music Lounge & Karaoke
+                        </Text>
+                        <Text style={styles.roomHostSubText} numberOfLines={1}>
+                          Host: @aria_singer • Live Audio Party Room
+                        </Text>
+                      </View>
+
+                      {/* Join CTA Button */}
+                      <TouchableOpacity
+                        style={styles.joinCtaTouch}
+                        onPress={() => router.push('/(tabs)/voice')}
+                      >
+                        <LinearGradient
+                          colors={['#0F766E', '#0D9488']}
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 0 }}
+                          style={styles.joinCtaGradient}
+                        >
+                          <Text style={styles.joinCtaText}>Join</Text>
+                          <Ionicons name="play" size={10} color="#FFFFFF" />
+                        </LinearGradient>
+                      </TouchableOpacity>
+                    </View>
+                  </LinearGradient>
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {/* 6. Online Companions Section (Redesigned Bento Cards with Dual Actions) */}
+            <View style={styles.section}>
+              <View style={styles.sectionHeaderRow}>
+                <View style={styles.sectionTitleRow}>
+                  <Ionicons name="sparkles" size={19} color="#0F766E" />
+                  <Text style={styles.sectionHeaderTitle}>Online Companions</Text>
+                </View>
+                <TouchableOpacity onPress={() => router.push('/(tabs)/rent')}>
+                  <Text style={styles.seeAllText}>See all &gt;</Text>
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.companionsBentoGrid}>
+                {people.length > 0 ? (
+                  people.slice(0, 4).map((person) => (
+                    <TouchableOpacity
+                      key={person.id}
+                      style={styles.companionBentoCard}
+                      onPress={() => router.push(`/companion/${person.id || 'comp-1'}`)}
+                      activeOpacity={0.88}
+                    >
+                      <LinearGradient
+                        colors={['#F0FDFA', '#FFFFFF']}
+                        style={styles.companionBentoHeaderBg}
+                      >
+                        <View style={styles.companionAvatarRingContainer}>
+                          <StoryRing viewed={false} size={64}>
+                            <Avatar
+                              uri={person.avatar_url}
+                              userId={person.id}
+                              size="lg"
+                              showOnline={true}
+                              isOnline={person.is_online}
+                            />
+                          </StoryRing>
+                        </View>
+                      </LinearGradient>
+
+                      <View style={styles.companionBentoInfoBody}>
+                        <DisplayName
+                          userId={person.id}
+                          fallback={person.full_name}
+                          style={styles.companionBentoNameText}
+                          numberOfLines={1}
+                        />
+
+                        <View style={styles.companionStatusPill}>
+                          <View style={[styles.statusDot, { backgroundColor: person.is_online ? '#10B981' : '#94A3B8' }]} />
+                          <Text style={styles.companionStatusText}>
+                            {person.is_online ? 'Available now' : 'Offline'}
+                          </Text>
+                        </View>
+
+                        {/* Dual Action CTAs */}
+                        <View style={styles.companionDualActionRow}>
+                          <TouchableOpacity
+                            style={styles.companionActionCallTouch}
+                            onPress={(e) => {
+                              e.stopPropagation();
+                              handleQuickCall(person, 'voice');
+                            }}
+                          >
+                            <LinearGradient
+                              colors={['#0F766E', '#0D9488']}
+                              style={styles.companionActionCallGradient}
+                            >
+                              <Ionicons name="call" size={12} color="#FFFFFF" />
+                              <Text style={styles.companionActionCallText}>Call</Text>
+                            </LinearGradient>
+                          </TouchableOpacity>
+
+                          <TouchableOpacity
+                            style={styles.companionActionChatTouch}
+                            onPress={(e) => {
+                              e.stopPropagation();
+                              router.push(`/(tabs)/messages`);
+                            }}
+                          >
+                            <LinearGradient
+                              colors={['#F59E0B', '#D97706']}
+                              style={styles.companionActionChatGradient}
+                            >
+                              <Ionicons name="chatbubble" size={12} color="#FFFFFF" />
+                              <Text style={styles.companionActionChatText}>Chat</Text>
+                            </LinearGradient>
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    </TouchableOpacity>
+                  ))
+                ) : (
+                  <>
+                    {/* Fallback Demo Card 1 */}
+                    <TouchableOpacity
+                      style={styles.companionBentoCard}
+                      onPress={() => router.push('/companion/comp-1')}
+                      activeOpacity={0.88}
+                    >
+                      <LinearGradient
+                        colors={['#F0FDFA', '#FFFFFF']}
+                        style={styles.companionBentoHeaderBg}
+                      >
+                        <View style={styles.companionAvatarRingContainer}>
+                          <StoryRing viewed={false} size={64}>
+                            <Avatar uri="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300" size="lg" showOnline={true} isOnline={true} />
+                          </StoryRing>
+                        </View>
+                      </LinearGradient>
+
+                      <View style={styles.companionBentoInfoBody}>
+                        <Text style={styles.companionBentoNameText} numberOfLines={1}>Aria Sharma</Text>
+                        <View style={styles.companionStatusPill}>
+                          <View style={[styles.statusDot, { backgroundColor: '#10B981' }]} />
+                          <Text style={styles.companionStatusText}>Available now</Text>
+                        </View>
+
+                        <View style={styles.companionDualActionRow}>
+                          <TouchableOpacity
+                            style={styles.companionActionCallTouch}
+                            onPress={() => router.push('/companion/comp-1')}
+                          >
+                            <LinearGradient colors={['#0F766E', '#0D9488']} style={styles.companionActionCallGradient}>
+                              <Ionicons name="call" size={12} color="#FFFFFF" />
+                              <Text style={styles.companionActionCallText}>Call</Text>
+                            </LinearGradient>
+                          </TouchableOpacity>
+
+                          <TouchableOpacity
+                            style={styles.companionActionChatTouch}
+                            onPress={() => router.push('/(tabs)/messages')}
+                          >
+                            <LinearGradient colors={['#F59E0B', '#D97706']} style={styles.companionActionChatGradient}>
+                              <Ionicons name="chatbubble" size={12} color="#FFFFFF" />
+                              <Text style={styles.companionActionChatText}>Chat</Text>
+                            </LinearGradient>
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    </TouchableOpacity>
+
+                    {/* Fallback Demo Card 2 */}
+                    <TouchableOpacity
+                      style={styles.companionBentoCard}
+                      onPress={() => router.push('/companion/comp-2')}
+                      activeOpacity={0.88}
+                    >
+                      <LinearGradient
+                        colors={['#FAF5FF', '#FFFFFF']}
+                        style={styles.companionBentoHeaderBg}
+                      >
+                        <View style={styles.companionAvatarRingContainer}>
+                          <StoryRing viewed={false} size={64}>
+                            <Avatar uri="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=300" size="lg" showOnline={true} isOnline={true} />
+                          </StoryRing>
+                        </View>
+                      </LinearGradient>
+
+                      <View style={styles.companionBentoInfoBody}>
+                        <Text style={styles.companionBentoNameText} numberOfLines={1}>Rohan Verma</Text>
+                        <View style={styles.companionStatusPill}>
+                          <View style={[styles.statusDot, { backgroundColor: '#10B981' }]} />
+                          <Text style={styles.companionStatusText}>Available now</Text>
+                        </View>
+
+                        <View style={styles.companionDualActionRow}>
+                          <TouchableOpacity
+                            style={styles.companionActionCallTouch}
+                            onPress={() => router.push('/companion/comp-2')}
+                          >
+                            <LinearGradient colors={['#0F766E', '#0D9488']} style={styles.companionActionCallGradient}>
+                              <Ionicons name="call" size={12} color="#FFFFFF" />
+                              <Text style={styles.companionActionCallText}>Call</Text>
+                            </LinearGradient>
+                          </TouchableOpacity>
+
+                          <TouchableOpacity
+                            style={styles.companionActionChatTouch}
+                            onPress={() => router.push('/(tabs)/messages')}
+                          >
+                            <LinearGradient colors={['#F59E0B', '#D97706']} style={styles.companionActionChatGradient}>
+                              <Ionicons name="chatbubble" size={12} color="#FFFFFF" />
+                              <Text style={styles.companionActionChatText}>Chat</Text>
+                            </LinearGradient>
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    </TouchableOpacity>
+                  </>
+                )}
+              </View>
+            </View>
+
+            {/* 7. Community Moments */}
+            <View style={styles.section}>
+              <View style={styles.sectionHeaderRow}>
+                <View style={styles.sectionTitleRow}>
+                  <Ionicons name="newspaper" size={19} color="#0F766E" />
+                  <Text style={styles.sectionHeaderTitle}>Community Moments</Text>
+                </View>
+                <TouchableOpacity onPress={() => router.push('/(tabs)/messages')}>
+                  <Text style={styles.seeAllText}>See all &gt;</Text>
+                </TouchableOpacity>
+              </View>
+
+              {posts.length > 0 ? (
+                posts.slice(0, 3).map((post) => (
+                  <View key={post.id} style={styles.feedCard}>
+                    <View style={styles.feedCardHeader}>
+                      <Avatar
+                        uri={post.user?.avatar_url ?? null}
+                        userId={post.user_id}
+                        size="sm"
+                        showOnline={true}
+                        isOnline={post.user?.is_online}
+                      />
+                      <View style={{ marginLeft: 10, flex: 1 }}>
+                        <DisplayName
+                          userId={post.user_id}
+                          fallback={post.user?.full_name ?? 'User'}
+                          style={styles.feedAuthorName}
+                        />
+                        <Text style={styles.feedTimeAgo}>
+                          {formatDistanceToNow(new Date(post.created_at), { addSuffix: true })}
                         </Text>
                       </View>
                     </View>
-                    <Pressable style={styles.joinButton}>
-                      <Text style={styles.joinText}>Join</Text>
-                    </Pressable>
-                  </Pressable>
-                ))}
-              </View>
-            )}
+
+                    <Text style={styles.feedText}>{post.content}</Text>
+
+                    {post.media_url ? (
+                      <Image source={{ uri: post.media_url }} style={styles.feedMediaImg} resizeMode="cover" />
+                    ) : null}
+
+                    <View style={styles.feedActionBar}>
+                      <TouchableOpacity style={styles.feedActionBtn} onPress={() => handleLikePost(post.id)}>
+                        <Ionicons
+                          name={post.is_liked ? 'heart' : 'heart-outline'}
+                          size={18}
+                          color={post.is_liked ? '#EF4444' : '#64748B'}
+                        />
+                        <Text style={[styles.feedActionCount, post.is_liked && { color: '#EF4444' }]}>
+                          {post.likes_count ?? 0}
+                        </Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity style={styles.feedActionBtn}>
+                        <Ionicons name="chatbubble-outline" size={17} color="#64748B" />
+                        <Text style={styles.feedActionCount}>{post.comments_count ?? 0}</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ))
+              ) : (
+                <View style={styles.feedCard}>
+                  <View style={styles.feedCardHeader}>
+                    <Avatar
+                      uri="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300"
+                      size="sm"
+                      showOnline={true}
+                      isOnline={true}
+                    />
+                    <View style={{ marginLeft: 10, flex: 1 }}>
+                      <Text style={styles.feedAuthorName}>Aria Sharma</Text>
+                      <Text style={styles.feedTimeAgo}>2 hours ago</Text>
+                    </View>
+                  </View>
+
+                  <Text style={styles.feedText}>
+                    Hosting a late-night Ludo & Voice party tonight at 9 PM! Come play with us!
+                  </Text>
+
+                  <View style={styles.feedActionBar}>
+                    <View style={styles.feedActionBtn}>
+                      <Ionicons name="heart" size={18} color="#EF4444" />
+                      <Text style={[styles.feedActionCount, { color: '#EF4444' }]}>42</Text>
+                    </View>
+
+                    <View style={styles.feedActionBtn}>
+                      <Ionicons name="chatbubble-outline" size={17} color="#64748B" />
+                      <Text style={styles.feedActionCount}>12</Text>
+                    </View>
+                  </View>
+                </View>
+              )}
+            </View>
           </>
         )}
       </ScrollView>
-
-      {/* Profile Modal */}
-      <Modal
-        visible={showProfileModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowProfileModal(false)}
-      >
-        <TouchableOpacity
-          style={styles.modalOverlay}
-          activeOpacity={1}
-          onPress={() => setShowProfileModal(false)}
-        >
-          <TouchableOpacity activeOpacity={1} style={styles.modalContent}>
-            <View style={styles.modalHandle} />
-            <View style={styles.modalUserSection}>
-              <Avatar uri={user?.avatar_url ?? null} size="lg" />
-              <Text style={styles.modalName}>{user?.full_name ?? 'Your Name'}</Text>
-              <Text style={styles.modalEmail}>{user?.email ?? ''}</Text>
-            </View>
-
-            <View style={styles.modalDivider} />
-
-            <TouchableOpacity
-              style={styles.modalOption}
-              onPress={() => { setShowProfileModal(false); router.push('/(tabs)/profile'); }}
-            >
-              <Ionicons name="person-outline" size={20} color={Colors.textPrimary} />
-              <Text style={styles.modalOptionText}>Edit Profile</Text>
-              <ChevronRight size={18} color={Colors.textTertiary} />
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.modalOption}
-              onPress={() => { setShowProfileModal(false); router.push('/profile/settings'); }}
-            >
-              <Ionicons name="settings-outline" size={20} color={Colors.textPrimary} />
-              <Text style={styles.modalOptionText}>Settings</Text>
-              <ChevronRight size={18} color={Colors.textTertiary} />
-            </TouchableOpacity>
-
-            <View style={styles.modalDivider} />
-
-            <TouchableOpacity
-              style={[styles.modalOption, styles.modalLogout]}
-              onPress={() => { setShowProfileModal(false); signOut(); }}
-            >
-              <Ionicons name="log-out-outline" size={20} color={Colors.error} />
-              <Text style={[styles.modalOptionText, { color: Colors.error }]}>Logout</Text>
-            </TouchableOpacity>
-          </TouchableOpacity>
-        </TouchableOpacity>
-      </Modal>
     </SafeAreaView>
   );
 }
@@ -320,349 +846,469 @@ export default function ExploreScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: Colors.bgPrimary,
+    backgroundColor: '#F8FAFC',
   },
+
+  /* Header */
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: Spacing.base,
-    paddingVertical: Spacing.md,
-    backgroundColor: Colors.bgSecondary,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: 10,
+    backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
-    borderBottomColor: Colors.borderLight,
+    borderBottomColor: '#F1F5F9',
   },
-  headerLeft: {
+  headerLeftRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 10,
   },
-  logo: {
+  userAvatarWrap: {
+    position: 'relative',
+  },
+  headerGreetingBox: {
+    justifyContent: 'center',
+  },
+  greetingTitle: {
     fontFamily: 'SpaceGrotesk-Bold',
-    fontSize: 24,
-    color: Colors.primary,
-    letterSpacing: -0.03,
+    fontSize: 16,
+    color: '#0F172A',
   },
-  onlinePill: {
+  greetingSub: {
+    fontFamily: 'SpaceGrotesk-Regular',
+    fontSize: 11,
+    color: '#64748B',
+  },
+  headerRightRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    backgroundColor: Colors.bgTertiary,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.xs,
+    gap: 12,
+  },
+  headerIconBtn: {
+    padding: 6,
+    position: 'relative',
+    backgroundColor: '#F8FAFC',
     borderRadius: Radius.full,
-    borderWidth: 1,
-    borderColor: Colors.borderLight,
   },
-  onlineDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: Colors.accentGreen,
+  bellBadge: {
+    position: 'absolute',
+    top: 2,
+    right: 2,
+    backgroundColor: '#EF4444',
+    borderRadius: 8,
+    minWidth: 16,
+    height: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
   },
-  onlineText: {
-    ...Typography.tabBar,
-    color: Colors.textSecondary,
-    fontWeight: '600',
+  bellBadgeText: {
+    fontFamily: 'SpaceGrotesk-Bold',
+    fontSize: 9,
+    color: '#FFFFFF',
   },
-  headerAvatar: {
-    padding: 2,
+  searchHeaderBox: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F1F5F9',
+    borderRadius: Radius.full,
+    paddingHorizontal: 12,
+    paddingVertical: Platform.OS === 'ios' ? 6 : 4,
   },
+  searchHeaderInput: {
+    flex: 1,
+    fontFamily: 'SpaceGrotesk-Regular',
+    fontSize: 13.5,
+    color: '#0F172A',
+  },
+
   scrollView: {
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: Spacing['3xl'],
+    paddingBottom: Platform.OS === 'ios' ? 115 : 100,
   },
   loadingContainer: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingTop: 200,
-    gap: Spacing.md,
+    paddingTop: 180,
+    gap: 12,
   },
   loadingText: {
-    ...Typography.body,
-    color: Colors.textSecondary,
-  },
-
-  // Hero Banner
-  heroSection: {
-    paddingHorizontal: Spacing.base,
-    paddingTop: Spacing.base,
-  },
-  heroBanner: {
-    borderRadius: Radius.xl,
-    padding: Spacing.xl,
-    minHeight: 180,
-  },
-  heroBadge: {
-    alignSelf: 'flex-start',
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.xs,
-    borderRadius: Radius.full,
-    marginBottom: Spacing.md,
-  },
-  heroBadgeText: {
-    ...Typography.caption,
-    color: '#FFFFFF',
-    fontWeight: '600',
-  },
-  heroTitle: {
-    fontFamily: 'SpaceGrotesk-Bold',
-    fontSize: 28,
-    lineHeight: 32,
-    color: '#FFFFFF',
-    marginBottom: Spacing.sm,
-  },
-  heroSubtitle: {
-    ...Typography.body,
-    color: 'rgba(255,255,255,0.85)',
-    marginBottom: Spacing.base,
-  },
-  heroButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    paddingHorizontal: Spacing.base,
-    paddingVertical: Spacing.sm,
-    borderRadius: Radius.full,
-    gap: Spacing.xs,
-  },
-  heroButtonText: {
-    ...Typography.bodyBold,
-    color: '#FFFFFF',
+    fontFamily: 'SpaceGrotesk-Medium',
     fontSize: 14,
+    color: '#64748B',
   },
 
-  // Search
-  searchSection: {
+  /* Section Header */
+  sectionHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: Spacing.base,
-    paddingTop: Spacing.base,
-    gap: Spacing.sm,
-  },
-  searchContainer: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
-    backgroundColor: Colors.bgSecondary,
-    borderRadius: Radius.lg,
-    borderWidth: 1,
-    borderColor: Colors.borderLight,
-    paddingVertical: Spacing.sm,
-    paddingHorizontal: Spacing.md,
-  },
-  searchInput: {
-    flex: 1,
-    ...Typography.body,
-    color: Colors.textPrimary,
-    padding: 0,
-  },
-  filterButton: {
-    width: 44,
-    height: 44,
-    borderRadius: Radius.lg,
-    backgroundColor: Colors.bgSecondary,
-    borderWidth: 1,
-    borderColor: Colors.borderLight,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  // Sections
-  section: {
-    marginTop: Spacing.xl,
-    paddingHorizontal: Spacing.base,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
     justifyContent: 'space-between',
+    paddingHorizontal: Spacing.lg,
+    marginTop: 14,
+    marginBottom: 8,
+  },
+  sectionTitleRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: Spacing.md,
+    gap: 6,
   },
-  sectionTitle: {
-    ...Typography.subheading,
-    fontSize: 18,
-    color: Colors.textPrimary,
+  sectionHeaderTitle: {
+    fontFamily: 'SpaceGrotesk-Bold',
+    fontSize: 16,
+    color: '#0F172A',
   },
-  seeAll: {
-    ...Typography.bodyMedium,
-    color: Colors.primary,
-    fontSize: 14,
-  },
-  count: {
-    ...Typography.caption,
-    color: Colors.textTertiary,
+  seeAllText: {
+    fontFamily: 'SpaceGrotesk-Bold',
+    fontSize: 12.5,
+    color: '#0F766E',
   },
 
-  // Stories
-  storiesRow: {
-    gap: Spacing.md,
+  /* Hero Ludo Party Banner */
+  heroSection: {
+    paddingHorizontal: Spacing.lg,
+    marginTop: 4,
+  },
+  heroCardTouch: {
+    width: '100%',
+    height: HERO_CARD_HEIGHT,
+    borderRadius: 22,
+    overflow: 'hidden',
+    shadowColor: '#0F766E',
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
+    backgroundColor: '#FFFFFF',
+  },
+  heroCardImage: {
+    width: '100%',
+    height: '100%',
+  },
+
+  /* 2x2 Party Games Grid */
+  gridSection: {
+    paddingHorizontal: Spacing.lg,
+    marginTop: 10,
+    gap: 10,
+  },
+  gridRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  gridCardTouch: {
+    width: GRID_CARD_WIDTH,
+    height: GRID_CARD_HEIGHT,
+    borderRadius: 18,
+    overflow: 'hidden',
+    shadowColor: '#0F172A',
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 3,
+    backgroundColor: '#FFFFFF',
+  },
+  gridCardImage: {
+    width: '100%',
+    height: '100%',
+  },
+
+  /* Stories Bar */
+  storiesBar: {
+    paddingVertical: 12,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+    marginTop: 14,
+  },
+  storiesScroll: {
+    paddingHorizontal: Spacing.lg,
+    gap: 14,
   },
   storyItem: {
     alignItems: 'center',
-    gap: Spacing.xs,
+    width: 70,
   },
   storyName: {
-    ...Typography.tabBar,
-    color: Colors.textSecondary,
-    maxWidth: 68,
+    fontFamily: 'SpaceGrotesk-Regular',
+    fontSize: 11,
+    color: '#334155',
+    marginTop: 4,
     textAlign: 'center',
   },
 
-  // Party Games Grid
-  gamesGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: Spacing.sm,
+  /* Live Voice Rooms Modern Redesign */
+  section: {
+    marginTop: 18,
   },
-  gameCard: {
-    width: (SCREEN_WIDTH - Spacing.base * 2 - Spacing.sm) / 2,
-    backgroundColor: Colors.bgSecondary,
-    borderRadius: Radius.lg,
+  roomCardWrapper: {
+    marginHorizontal: Spacing.lg,
+    marginBottom: 10,
+    borderRadius: 20,
+    overflow: 'hidden',
     borderWidth: 1,
-    borderColor: Colors.borderLight,
-    padding: Spacing.base,
-    alignItems: 'center',
-    gap: Spacing.sm,
+    borderColor: '#CCFBF1',
+    shadowColor: '#0F766E',
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
   },
-  gameIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: Radius.lg,
-    alignItems: 'center',
-    justifyContent: 'center',
+  roomCardGradient: {
+    padding: 13,
   },
-  gameLabel: {
-    ...Typography.bodyBold,
-    color: Colors.textPrimary,
-    fontSize: 14,
-  },
-
-  // People Grid
-  peopleGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: Spacing.md,
-  },
-  personCard: {
-    alignItems: 'center',
-    width: 72,
-    gap: Spacing.xs,
-  },
-  personName: {
-    ...Typography.tabBar,
-    color: Colors.textSecondary,
-    textAlign: 'center',
-  },
-
-  // Rooms
-  roomCard: {
+  roomTopMetaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.bgSecondary,
-    borderRadius: Radius.lg,
-    borderWidth: 1,
-    borderColor: Colors.borderLight,
-    padding: Spacing.base,
-    marginBottom: Spacing.sm,
+    justifyContent: 'space-between',
+    marginBottom: 10,
   },
-  roomIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: Radius.md,
-    backgroundColor: Colors.primarySoft,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  roomInfo: {
-    flex: 1,
-    marginLeft: Spacing.md,
-  },
-  roomTopic: {
-    ...Typography.bodyBold,
-    color: Colors.textPrimary,
-    fontSize: 14,
-  },
-  roomMeta: {
+  livePillBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    marginTop: 2,
+    backgroundColor: '#EF4444',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
   },
-  roomParticipants: {
-    ...Typography.caption,
-    color: Colors.textTertiary,
+  livePulseDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#FFFFFF',
   },
-  joinButton: {
-    backgroundColor: Colors.primary,
-    paddingHorizontal: Spacing.base,
-    paddingVertical: Spacing.sm,
-    borderRadius: Radius.full,
-  },
-  joinText: {
-    ...Typography.bodyBold,
+  livePillText: {
+    fontFamily: 'SpaceGrotesk-Bold',
+    fontSize: 9.5,
     color: '#FFFFFF',
-    fontSize: 13,
+    letterSpacing: 0.5,
   },
-
-  // Profile Modal
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: Colors.bgSecondary,
-    borderTopLeftRadius: Radius.xl,
-    borderTopRightRadius: Radius.xl,
-    paddingVertical: Spacing.lg,
-    paddingHorizontal: Spacing.xl,
-    paddingBottom: Spacing['3xl'],
-  },
-  modalHandle: {
-    width: 40,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: Colors.borderMedium,
-    alignSelf: 'center',
-    marginBottom: Spacing.xl,
-  },
-  modalUserSection: {
-    alignItems: 'center',
-    marginBottom: Spacing.lg,
-  },
-  modalName: {
-    ...Typography.subheading,
-    marginTop: Spacing.md,
-    color: Colors.textPrimary,
-  },
-  modalEmail: {
-    ...Typography.caption,
-    color: Colors.textTertiary,
-    marginTop: Spacing.xs,
-  },
-  modalDivider: {
-    height: 1,
-    backgroundColor: Colors.borderLight,
-    marginVertical: Spacing.sm,
-  },
-  modalOption: {
+  tagPillBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: Spacing.base,
-    gap: Spacing.md,
+    gap: 4,
+    backgroundColor: '#E0F2FE',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
   },
-  modalOptionText: {
-    ...Typography.bodyBold,
-    color: Colors.textPrimary,
+  tagPillText: {
+    fontFamily: 'SpaceGrotesk-Medium',
+    fontSize: 10.5,
+    color: '#0369A1',
+  },
+  listenerCountText: {
+    fontFamily: 'SpaceGrotesk-Bold',
+    fontSize: 11,
+    color: '#0F766E',
+  },
+  roomMainRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  roomMicAvatarBox: {
+    marginRight: 10,
+  },
+  roomMicGradientCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#0F766E',
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  roomDetailsTextCol: {
     flex: 1,
+    marginRight: 8,
   },
-  modalLogout: {
-    marginTop: Spacing.xs,
+  roomTitleText: {
+    fontFamily: 'SpaceGrotesk-Bold',
+    fontSize: 13.5,
+    color: '#0F172A',
+    marginBottom: 2,
+  },
+  roomHostSubText: {
+    fontFamily: 'SpaceGrotesk-Regular',
+    fontSize: 11,
+    color: '#64748B',
+  },
+  joinCtaTouch: {
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  joinCtaGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  joinCtaText: {
+    fontFamily: 'SpaceGrotesk-Bold',
+    fontSize: 12,
+    color: '#FFFFFF',
+  },
+
+  /* Online Companions Bento Grid Redesign */
+  companionsBentoGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    paddingHorizontal: Spacing.lg,
+    marginTop: 6,
+  },
+  companionBentoCard: {
+    width: (SCREEN_WIDTH - Spacing.lg * 2 - 10) / 2,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 22,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    shadowColor: '#0F172A',
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  companionBentoHeaderBg: {
+    paddingTop: 14,
+    paddingBottom: 10,
+    alignItems: 'center',
+  },
+  companionAvatarRingContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  companionBentoInfoBody: {
+    paddingHorizontal: 10,
+    paddingBottom: 12,
+    alignItems: 'center',
+  },
+  companionBentoNameText: {
+    fontFamily: 'SpaceGrotesk-Bold',
+    fontSize: 13.5,
+    color: '#0F172A',
+    marginBottom: 4,
+    textAlign: 'center',
+  },
+  companionStatusPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+    marginBottom: 10,
+  },
+  statusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  companionStatusText: {
+    fontFamily: 'SpaceGrotesk-Medium',
+    fontSize: 10.5,
+    color: '#475569',
+  },
+  companionDualActionRow: {
+    flexDirection: 'row',
+    gap: 6,
+    width: '100%',
+  },
+  companionActionCallTouch: {
+    flex: 1,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  companionActionCallGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    paddingVertical: 7,
+  },
+  companionActionCallText: {
+    fontFamily: 'SpaceGrotesk-Bold',
+    fontSize: 11,
+    color: '#FFFFFF',
+  },
+  companionActionChatTouch: {
+    flex: 1,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  companionActionChatGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    paddingVertical: 7,
+  },
+  companionActionChatText: {
+    fontFamily: 'SpaceGrotesk-Bold',
+    fontSize: 11,
+    color: '#FFFFFF',
+  },
+
+  /* Community Feed */
+  feedCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: Radius.xl,
+    padding: 14,
+    marginHorizontal: Spacing.lg,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    marginTop: 4,
+  },
+  feedCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  feedAuthorName: {
+    fontFamily: 'SpaceGrotesk-Bold',
+    fontSize: 13.5,
+    color: '#0F172A',
+  },
+  feedTimeAgo: {
+    fontFamily: 'SpaceGrotesk-Regular',
+    fontSize: 11,
+    color: '#94A3B8',
+  },
+  feedText: {
+    fontFamily: 'SpaceGrotesk-Regular',
+    fontSize: 13.5,
+    lineHeight: 19,
+    color: '#334155',
+    marginBottom: 8,
+  },
+  feedMediaImg: {
+    width: '100%',
+    height: 160,
+    borderRadius: Radius.lg,
+    marginBottom: 8,
+  },
+  feedActionBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    paddingTop: 4,
+  },
+  feedActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  feedActionCount: {
+    fontFamily: 'SpaceGrotesk-Medium',
+    fontSize: 12,
+    color: '#64748B',
   },
 });

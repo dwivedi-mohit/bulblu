@@ -197,3 +197,32 @@ export interface Notification {
   is_read: boolean;
   created_at: string;
 }
+
+export interface CompanionApplication {
+  id: string;
+  user_id: string;
+  full_legal_name: string;
+  display_name: string;
+  phone_number: string;
+  whatsapp_number: string;
+  email: string;
+  govt_id_type: string;
+  govt_id_number: string;
+  pfp_url: string | null;
+  gallery_images: string[];
+  live_selfie_url: string | null;
+  voice_intro_url: string | null;
+  bank_upi_id: string;
+  hourly_rate: number;
+  speed_call_rate: number;
+  services_offered: string[];
+  city: string;
+  area: string;
+  bio: string;
+  signed_code_of_conduct: boolean;
+  status: 'PENDING_VERIFICATION' | 'APPROVED' | 'REJECTED';
+  rejection_reason: string | null;
+  reviewed_at: string | null;
+  created_at: string;
+  user?: User;
+}

@@ -1,116 +1,315 @@
-import React, { useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
-  View, Text, StyleSheet, Pressable, Dimensions,
+  View,
+  Text,
+  StyleSheet,
+  Pressable,
+  useWindowDimensions,
+  TouchableOpacity,
+  TextInput,
+  FlatList,
+  KeyboardAvoidingView,
+  Platform,
+  NativeModules,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
-import { Spacing, Radius } from '../../constants/spacing';
+import { Spacing, Radius, Layout } from '../../constants/spacing';
 import { Typography } from '../../constants/typography';
-import { Avatar } from '../../components/ui/Avatar';
+import { useVideoStore, VideoMessage } from '../../stores/videoStore';
+import { useAuthStore } from '../../stores/authStore';
+import {
+  onVideoMatched,
+  onVideoSignal,
+  onVideoPartnerLeft,
+  onVideoWaiting,
+  onVideoTextReceive,
+} from '../../lib/socket';
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+let RTCView: any = null;
+if (Platform.OS !== 'web' && NativeModules.WebRTCModule) {
+  try {
+    RTCView = require('@livekit/react-native-webrtc').RTCView;
+  } catch {}
+}
 
-const MOCK_PROFILES = [
-  { id: '1', name: 'Aria', age: 23, city: 'Mumbai', avatar: null, interests: ['Music', 'Travel'] },
-  { id: '2', name: 'Maya', age: 21, city: 'Delhi', avatar: null, interests: ['Gaming', 'Art'] },
-  { id: '3', name: 'Elena', age: 25, city: 'Bangalore', avatar: null, interests: ['Coffee', 'Movies'] },
-];
+function getStreamUrl(stream: any): string {
+  if (!stream) return '';
+  if (typeof stream.toURL === 'function') return stream.toURL();
+  if (stream.id) return String(stream.id);
+  return String(stream);
+}
 
 export default function VideoScreen() {
-  const [currentProfile, setCurrentProfile] = useState(MOCK_PROFILES[0]);
-  const [isConnected, setIsConnected] = useState(false);
-  const [matchCount] = useState(28400);
+  const { width: screenW, height: screenH } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  const user = useAuthStore((s) => s.user);
+  const {
+    status, roomId, partner, localStream, remoteStream,
+    isMuted, isVideoOff, textMessages,
+    startSearching, stopSearching, skip, end,
+    toggleMute, toggleVideo, sendText,
+    handleMatched, handleSignal, handlePartnerLeft,
+  } = useVideoStore();
 
-  const handleNext = useCallback(() => {
-    const currentIndex = MOCK_PROFILES.findIndex((p) => p.id === currentProfile.id);
-    const nextIndex = (currentIndex + 1) % MOCK_PROFILES.length;
-    setCurrentProfile(MOCK_PROFILES[nextIndex]);
-  }, [currentProfile]);
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatInput, setChatInput] = useState('');
+  const chatListRef = useRef<FlatList>(null);
 
-  const handleStop = useCallback(() => {
-    setIsConnected(false);
+  // Responsive dimensions
+  const controlIconSize = Math.max(44, Math.min(52, screenW * 0.12));
+  const controlGap = Math.max(12, Math.min(20, screenW * 0.05));
+  const controlDeckBottom = Layout.tabBarHeight + insets.bottom;
+  const placeholderIconSize = Math.max(36, Math.min(48, screenW * 0.12));
+  const chatOverlayMaxH = screenH * 0.35;
+  const chatOverlayBottom = 80 + controlDeckBottom + Spacing.base;
+  const btnPadH = Math.max(20, screenW * 0.08);
+
+  // Socket listeners
+  useEffect(() => {
+    const unsubs = [
+      onVideoMatched((data) => handleMatched(data)),
+      onVideoSignal((data) => handleSignal(data)),
+      onVideoPartnerLeft(() => handlePartnerLeft()),
+      onVideoWaiting(() => {}),
+      onVideoTextReceive((msg) => {
+        useVideoStore.setState((s) => ({
+          textMessages: [...s.textMessages, msg],
+        }));
+      }),
+    ];
+    return () => unsubs.forEach((u) => u());
   }, []);
 
-  const handleConnect = useCallback(() => {
-    setIsConnected(true);
-  }, []);
+  // Auto-scroll chat
+  useEffect(() => {
+    if (textMessages.length > 0) {
+      setTimeout(() => chatListRef.current?.scrollToEnd({ animated: true }), 100);
+    }
+  }, [textMessages]);
+
+  const handleSendText = () => {
+    if (!chatInput.trim()) return;
+    sendText(chatInput);
+    setChatInput('');
+  };
+
+  const renderVideoStream = (stream: any, label: string, isLocal: boolean) => {
+    const url = getStreamUrl(stream);
+    if (!url || !RTCView) {
+      return (
+        <View style={styles.videoPlaceholder}>
+          <Ionicons name="videocam-off" size={placeholderIconSize} color={Colors.textTertiary} />
+          <Text style={styles.placeholderText} numberOfLines={1}>{label}</Text>
+        </View>
+      );
+    }
+    return (
+      <RTCView
+        streamURL={url}
+        style={styles.videoFeed}
+        objectFit="cover"
+        mirror={isLocal}
+        zOrder={isLocal ? 1 : 0}
+      />
+    );
+  };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       {/* Status Bar */}
       <View style={styles.statusBar}>
         <View style={styles.statusPill}>
-          <View style={[styles.statusDot, isConnected && styles.statusDotLive]} />
-          <Text style={styles.statusText}>
-            {isConnected ? `${currentProfile.name}, ${currentProfile.age} (Connected)` : 'Tap to connect'}
+          <View style={[styles.statusDot, status === 'connected' && styles.statusDotLive]} />
+          <Text style={styles.statusText} numberOfLines={1}>
+            {status === 'idle' && 'Ready to connect'}
+            {status === 'searching' && 'Looking for someone...'}
+            {status === 'connecting' && 'Connecting...'}
+            {status === 'connected' && `Connected with ${partner?.name || 'stranger'}`}
+            {status === 'ended' && 'Chat ended'}
           </Text>
         </View>
-        <View style={styles.matchCounter}>
-          <Ionicons name="videocam" size={12} color={Colors.primary} />
-          <Text style={styles.matchText}>{(matchCount / 1000).toFixed(1)}k Live Match</Text>
+        {status === 'connected' && (
+          <View style={styles.matchCounter}>
+            <Ionicons name="videocam" size={12} color={Colors.primary} />
+            <Text style={styles.matchText}>Live</Text>
+          </View>
+        )}
+      </View>
+
+      {/* Video Viewport — 50/50 split */}
+      <View style={styles.videoViewport}>
+        {/* Top half — Stranger's video */}
+        <View style={styles.videoHalf}>
+          {status === 'connected' || status === 'connecting' ? (
+            renderVideoStream(remoteStream, 'Stranger', false)
+          ) : (
+            <View style={styles.videoPlaceholder}>
+              {status === 'searching' ? (
+                <>
+                  <View style={styles.searchingDots}>
+                    <View style={[styles.dot, styles.dot1]} />
+                    <View style={[styles.dot, styles.dot2]} />
+                    <View style={[styles.dot, styles.dot3]} />
+                  </View>
+                  <Text style={styles.placeholderText}>Looking for someone...</Text>
+                </>
+              ) : status === 'ended' ? (
+                <>
+                  <Ionicons name="person-remove" size={placeholderIconSize} color={Colors.textTertiary} />
+                  <Text style={styles.placeholderText}>Stranger has left</Text>
+                </>
+              ) : (
+                <>
+                  <Ionicons name="videocam" size={placeholderIconSize} color={Colors.textTertiary} />
+                  <Text style={styles.placeholderText}>Stranger's video</Text>
+                </>
+              )}
+            </View>
+          )}
+          {/* Partner info overlay */}
+          {status === 'connected' && partner && (
+            <View style={styles.partnerOverlay}>
+              <Text style={styles.partnerName} numberOfLines={1}>{partner.name}</Text>
+            </View>
+          )}
+        </View>
+
+        {/* Divider */}
+        <View style={styles.divider} />
+
+        {/* Bottom half — Your video */}
+        <View style={styles.videoHalf}>
+          {localStream && !isVideoOff ? (
+            renderVideoStream(localStream, 'You', true)
+          ) : (
+            <View style={styles.videoPlaceholder}>
+              <Ionicons name={isVideoOff ? 'videocam-off' : 'videocam'} size={placeholderIconSize} color={Colors.textTertiary} />
+              <Text style={styles.placeholderText}>
+                {isVideoOff ? 'Camera off' : 'Your video'}
+              </Text>
+            </View>
+          )}
+          <View style={styles.selfOverlay}>
+            <Text style={styles.selfName}>You</Text>
+          </View>
         </View>
       </View>
 
-      {/* Video Viewport */}
-      <View style={styles.videoViewport}>
-        {isConnected ? (
-          <View style={styles.connectedView}>
-            <View style={styles.companionFrame}>
-              <Avatar uri={currentProfile.avatar} size="xl" />
-              <Text style={styles.companionName}>{currentProfile.name}, {currentProfile.age}</Text>
-              <Text style={styles.companionCity}>{currentProfile.city}</Text>
-            </View>
-
-            {/* User PiP */}
-            <View style={styles.pipFrame}>
-              <Avatar uri={null} size="md" />
-            </View>
-          </View>
-        ) : (
-          <View style={styles.waitingView}>
-            <Avatar uri={currentProfile.avatar} size="xl" />
-            <Text style={styles.waitingName}>{currentProfile.name}, {currentProfile.age}</Text>
-            <Text style={styles.waitingCity}>{currentProfile.city}</Text>
-            <View style={styles.interestsRow}>
-              {currentProfile.interests.map((interest) => (
-                <View key={interest} style={styles.interestPill}>
-                  <Text style={styles.interestText}>{interest}</Text>
-                </View>
-              ))}
-            </View>
-          </View>
-        )}
-      </View>
-
-      {/* Control Deck */}
-      <View style={styles.controlDeck}>
-        <Pressable style={styles.controlButton} onPress={handleStop}>
-          <View style={[styles.controlIcon, { backgroundColor: 'rgba(239,68,68,0.1)' }]}>
-            <Ionicons name="stop" size={24} color={Colors.error} />
-          </View>
-          <Text style={styles.controlLabel}>Stop</Text>
-        </Pressable>
-
-        {!isConnected ? (
-          <Pressable style={styles.connectButton} onPress={handleConnect}>
+      {/* Controls */}
+      <View style={[styles.controlDeck, { paddingBottom: controlDeckBottom }]}>
+        {status === 'idle' || status === 'ended' ? (
+          <Pressable style={[styles.connectButton, { paddingHorizontal: btnPadH }]} onPress={startSearching}>
             <Ionicons name="videocam" size={24} color="#FFFFFF" />
-            <Text style={styles.connectText}>Connect</Text>
+            <Text style={styles.connectText}>
+              {status === 'ended' ? 'Find New Match' : 'Start Video Chat'}
+            </Text>
+          </Pressable>
+        ) : status === 'searching' ? (
+          <Pressable style={[styles.stopButton, { paddingHorizontal: btnPadH }]} onPress={stopSearching}>
+            <Ionicons name="close-circle" size={24} color="#FFFFFF" />
+            <Text style={styles.stopText}>Cancel</Text>
           </Pressable>
         ) : (
-          <Pressable style={styles.nextButton} onPress={handleNext}>
-            <Ionicons name="play-forward" size={24} color="#FFFFFF" />
-            <Text style={styles.nextText}>Next Match</Text>
-          </Pressable>
-        )}
+          <View style={[styles.connectedControls, { gap: controlGap }]}>
+            <Pressable style={styles.controlButton} onPress={toggleMute}>
+              <View style={[styles.controlIcon, { width: controlIconSize, height: controlIconSize, borderRadius: controlIconSize / 2 }, isMuted && styles.controlIconActive]}>
+                <Ionicons name={isMuted ? 'mic-off' : 'mic'} size={controlIconSize * 0.42} color={isMuted ? Colors.error : Colors.textPrimary} />
+              </View>
+              <Text style={styles.controlLabel}>{isMuted ? 'Unmute' : 'Mute'}</Text>
+            </Pressable>
 
-        <Pressable style={styles.controlButton}>
-          <View style={[styles.controlIcon, { backgroundColor: 'rgba(245,158,11,0.1)' }]}>
-            <Ionicons name="filter" size={24} color={Colors.accentYellow} />
+            <Pressable style={[styles.skipButton, { paddingHorizontal: btnPadH }]} onPress={skip}>
+              <Ionicons name="play-forward" size={24} color="#FFFFFF" />
+              <Text style={styles.skipText}>Skip</Text>
+            </Pressable>
+
+            <Pressable style={styles.controlButton} onPress={toggleVideo}>
+              <View style={[styles.controlIcon, { width: controlIconSize, height: controlIconSize, borderRadius: controlIconSize / 2 }, isVideoOff && styles.controlIconActive]}>
+                <Ionicons name={isVideoOff ? 'videocam-off' : 'videocam'} size={controlIconSize * 0.42} color={isVideoOff ? Colors.error : Colors.textPrimary} />
+              </View>
+              <Text style={styles.controlLabel}>{isVideoOff ? 'Cam On' : 'Cam Off'}</Text>
+            </Pressable>
+
+            <Pressable style={styles.controlButton} onPress={() => setChatOpen(!chatOpen)}>
+              <View style={[styles.controlIcon, { width: controlIconSize, height: controlIconSize, borderRadius: controlIconSize / 2 }, chatOpen && styles.controlIconActive]}>
+                <Ionicons name="chatbubble" size={controlIconSize * 0.42} color={chatOpen ? Colors.primary : Colors.textPrimary} />
+                {textMessages.length > 0 && !chatOpen && (
+                  <View style={styles.chatBadge}>
+                    <Text style={styles.chatBadgeText}>{textMessages.length}</Text>
+                  </View>
+                )}
+              </View>
+              <Text style={styles.controlLabel}>Chat</Text>
+            </Pressable>
+
+            <Pressable style={styles.controlButton} onPress={end}>
+              <View style={[styles.controlIcon, { width: controlIconSize, height: controlIconSize, borderRadius: controlIconSize / 2, backgroundColor: 'rgba(239,68,68,0.15)' }]}>
+                <Ionicons name="call" size={controlIconSize * 0.42} color={Colors.error} />
+              </View>
+              <Text style={styles.controlLabel}>End</Text>
+            </Pressable>
           </View>
-          <Text style={styles.controlLabel}>Filter</Text>
-        </Pressable>
+        )}
       </View>
+
+      {/* Text Chat Overlay */}
+      {chatOpen && (status === 'connected' || status === 'connecting') && (
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={[styles.chatOverlay, { bottom: chatOverlayBottom, maxHeight: chatOverlayMaxH }]}
+          keyboardVerticalOffset={0}
+        >
+          <View style={styles.chatHeader}>
+            <Text style={styles.chatTitle}>Text Chat</Text>
+            <TouchableOpacity onPress={() => setChatOpen(false)}>
+              <Ionicons name="close" size={20} color={Colors.textSecondary} />
+            </TouchableOpacity>
+          </View>
+
+          <FlatList
+            ref={chatListRef}
+            data={textMessages}
+            keyExtractor={(_, i) => String(i)}
+            style={styles.chatList}
+            renderItem={({ item }) => (
+              <View style={[
+                styles.chatBubble,
+                item.senderId === user?.id ? styles.chatBubbleSelf : styles.chatBubblePartner,
+              ]}>
+                {item.senderId !== user?.id && (
+                  <Text style={styles.chatSender}>{item.senderName}</Text>
+                )}
+                <Text style={[
+                  styles.chatMessage,
+                  item.senderId === user?.id && styles.chatMessageSelf,
+                ]}>
+                  {item.content}
+                </Text>
+              </View>
+            )}
+            ListEmptyComponent={
+              <Text style={styles.chatEmpty}>Say hello!</Text>
+            }
+          />
+
+          <View style={styles.chatInputRow}>
+            <TextInput
+              style={styles.chatInput}
+              value={chatInput}
+              onChangeText={setChatInput}
+              placeholder="Type a message..."
+              placeholderTextColor={Colors.textTertiary}
+              onSubmitEditing={handleSendText}
+              returnKeyType="send"
+            />
+            <Pressable style={styles.chatSendBtn} onPress={handleSendText}>
+              <Ionicons name="send" size={18} color={Colors.primary} />
+            </Pressable>
+          </View>
+        </KeyboardAvoidingView>
+      )}
     </SafeAreaView>
   );
 }
@@ -121,7 +320,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.bgPrimary,
   },
 
-  // Status Bar
+  // Status
   statusBar: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -147,7 +346,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.textTertiary,
   },
   statusDotLive: {
-    backgroundColor: Colors.error,
+    backgroundColor: '#22C55E',
   },
   statusText: {
     ...Typography.caption,
@@ -174,106 +373,94 @@ const styles = StyleSheet.create({
     flex: 1,
     marginHorizontal: Spacing.base,
     borderRadius: Radius.xl,
-    backgroundColor: Colors.bgTertiary,
     overflow: 'hidden',
     borderWidth: 2,
     borderColor: Colors.borderLight,
   },
-  connectedView: {
+  videoHalf: {
+    flex: 1,
+    backgroundColor: Colors.bgTertiary,
+    position: 'relative',
+  },
+  divider: {
+    height: 2,
+    backgroundColor: Colors.borderLight,
+  },
+  videoFeed: {
+    ...StyleSheet.absoluteFill,
+  },
+  videoPlaceholder: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  companionFrame: {
-    alignItems: 'center',
-    gap: Spacing.sm,
-  },
-  companionName: {
-    ...Typography.subheading,
-    color: Colors.textPrimary,
-    fontSize: 20,
-  },
-  companionCity: {
-    ...Typography.caption,
-    color: Colors.textSecondary,
-  },
-  pipFrame: {
-    position: 'absolute',
-    bottom: Spacing.lg,
-    right: Spacing.lg,
-    width: 100,
-    height: 130,
-    borderRadius: Radius.lg,
-    backgroundColor: Colors.bgSecondary,
-    borderWidth: 2,
-    borderColor: Colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  waitingView: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: Colors.bgTertiary,
     gap: Spacing.md,
   },
-  waitingName: {
-    ...Typography.subheading,
-    color: Colors.textPrimary,
-    fontSize: 22,
+  placeholderText: {
+    ...Typography.body,
+    color: Colors.textTertiary,
   },
-  waitingCity: {
-    ...Typography.caption,
-    color: Colors.textSecondary,
-  },
-  interestsRow: {
-    flexDirection: 'row',
-    gap: Spacing.sm,
-  },
-  interestPill: {
-    backgroundColor: Colors.primarySoft,
+  partnerOverlay: {
+    position: 'absolute',
+    bottom: Spacing.md,
+    left: Spacing.md,
+    backgroundColor: 'rgba(0,0,0,0.6)',
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.xs,
     borderRadius: Radius.full,
   },
-  interestText: {
-    ...Typography.tabBar,
-    color: Colors.primary,
-    fontWeight: '600',
+  partnerName: {
+    ...Typography.caption,
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  selfOverlay: {
+    position: 'absolute',
+    bottom: Spacing.md,
+    left: Spacing.md,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
+    borderRadius: Radius.full,
+  },
+  selfName: {
+    ...Typography.caption,
+    color: '#FFFFFF',
+    fontWeight: '700',
   },
 
-  // Control Deck
+  // Searching animation
+  searchingDots: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: Spacing.md,
+  },
+  dot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: Colors.primary,
+  },
+  dot1: { opacity: 0.4 },
+  dot2: { opacity: 0.7 },
+  dot3: { opacity: 1 },
+
+  // Controls
   controlDeck: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
+    justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: Spacing.xl,
-    paddingVertical: Spacing.xl,
-    paddingBottom: Spacing['2xl'],
-  },
-  controlButton: {
-    alignItems: 'center',
-    gap: Spacing.xs,
-  },
-  controlIcon: {
-    width: 56,
-    height: 56,
-    borderRadius: Radius.full,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  controlLabel: {
-    ...Typography.tabBar,
-    color: Colors.textSecondary,
+    paddingTop: Spacing.sm,
   },
   connectButton: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.sm,
-    backgroundColor: Colors.primary,
-    paddingHorizontal: Spacing.xl,
+    backgroundColor: '#22C55E',
     paddingVertical: Spacing.base,
     borderRadius: Radius.full,
-    shadowColor: Colors.primary,
+    shadowColor: '#22C55E',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 12,
@@ -283,17 +470,166 @@ const styles = StyleSheet.create({
     ...Typography.bodyBold,
     color: '#FFFFFF',
   },
-  nextButton: {
+  stopButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    backgroundColor: Colors.error,
+    paddingVertical: Spacing.base,
+    borderRadius: Radius.full,
+  },
+  stopText: {
+    ...Typography.bodyBold,
+    color: '#FFFFFF',
+  },
+  connectedControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  controlButton: {
+    alignItems: 'center',
+    gap: Spacing.xs,
+  },
+  controlIcon: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.bgSecondary,
+    borderWidth: 1,
+    borderColor: Colors.borderLight,
+  },
+  controlIconActive: {
+    backgroundColor: 'rgba(239,68,68,0.15)',
+    borderColor: Colors.error,
+  },
+  controlLabel: {
+    ...Typography.tabBar,
+    color: Colors.textSecondary,
+    fontSize: 11,
+  },
+  skipButton: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.sm,
     backgroundColor: Colors.primary,
-    paddingHorizontal: Spacing.xl,
     paddingVertical: Spacing.base,
     borderRadius: Radius.full,
   },
-  nextText: {
+  skipText: {
     ...Typography.bodyBold,
     color: '#FFFFFF',
+  },
+  chatBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    backgroundColor: Colors.error,
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 5,
+  },
+  chatBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+
+  // Chat Overlay
+  chatOverlay: {
+    position: 'absolute',
+    left: Spacing.base,
+    right: Spacing.base,
+    backgroundColor: Colors.bgSecondary,
+    borderRadius: Radius.xl,
+    borderWidth: 1,
+    borderColor: Colors.borderLight,
+    overflow: 'hidden',
+  },
+  chatHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.borderLight,
+  },
+  chatTitle: {
+    ...Typography.caption,
+    color: Colors.textSecondary,
+    fontWeight: '700',
+  },
+  chatList: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+  },
+  chatBubble: {
+    marginBottom: Spacing.sm,
+    maxWidth: '80%',
+  },
+  chatBubbleSelf: {
+    alignSelf: 'flex-end',
+    backgroundColor: Colors.primarySoft,
+    borderRadius: Radius.lg,
+    borderBottomRightRadius: 4,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+  },
+  chatBubblePartner: {
+    alignSelf: 'flex-start',
+    backgroundColor: Colors.bgTertiary,
+    borderRadius: Radius.lg,
+    borderBottomLeftRadius: 4,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+  },
+  chatSender: {
+    ...Typography.tabBar,
+    color: Colors.primary,
+    fontWeight: '600',
+    marginBottom: 2,
+  },
+  chatMessage: {
+    ...Typography.body,
+    color: Colors.textPrimary,
+  },
+  chatMessageSelf: {
+    color: Colors.primary,
+  },
+  chatEmpty: {
+    ...Typography.caption,
+    color: Colors.textTertiary,
+    textAlign: 'center',
+    paddingVertical: Spacing.lg,
+  },
+  chatInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: Colors.borderLight,
+    gap: Spacing.sm,
+  },
+  chatInput: {
+    flex: 1,
+    ...Typography.body,
+    color: Colors.textPrimary,
+    backgroundColor: Colors.bgTertiary,
+    borderRadius: Radius.full,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderWidth: 1,
+    borderColor: Colors.borderLight,
+  },
+  chatSendBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.primarySoft,
   },
 });

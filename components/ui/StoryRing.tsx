@@ -66,5 +66,7 @@ const styles = StyleSheet.create({
   inner: {
     overflow: 'hidden',
     backgroundColor: Colors.bgSecondary,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
