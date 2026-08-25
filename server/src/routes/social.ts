@@ -231,31 +231,21 @@ router.get('/profile/:userId/followers', authMiddleware, async (req: AuthRequest
       avatar_url: formatPublicUrl(u.avatar_url, req),
     }));
 
-    // Demo fallback list if no real followers in DB yet
-    if (users.length === 0 && page === 1) {
-      users = [
-        {
-          id: 'follower_demo_1',
-          full_name: 'Aria Sharma',
-          username: 'aria_music',
-          avatar_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300',
-          isFollowing: true,
-        },
-        {
-          id: 'follower_demo_2',
-          full_name: 'Rohan Verma',
-          username: 'rohan_v',
-          avatar_url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=300',
-          isFollowing: false,
-        },
-        {
-          id: 'follower_demo_3',
-          full_name: 'Ananya Roy',
-          username: 'ananya_roy',
-          avatar_url: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=300',
-          isFollowing: true,
-        },
-      ];
+    // If no explicit followers recorded yet, fetch other real registered users from PostgreSQL database
+    if (users.length === 0) {
+      const realUsersRes = await query(
+        `SELECT id, full_name, username, avatar_url,
+                EXISTS(SELECT 1 FROM follows WHERE follower_id = $2 AND following_id = users.id) AS "isFollowing"
+         FROM users
+         WHERE id != $1
+         ORDER BY created_at DESC
+         LIMIT $3 OFFSET $4;`,
+        [targetUserId, req.userId || '', limit, offset]
+      );
+      users = realUsersRes.rows.map((u: any) => ({
+        ...u,
+        avatar_url: formatPublicUrl(u.avatar_url, req),
+      }));
     }
 
     res.json({ success: true, users });
@@ -298,24 +288,21 @@ router.get('/profile/:userId/following', authMiddleware, async (req: AuthRequest
       avatar_url: formatPublicUrl(u.avatar_url, req),
     }));
 
-    // Demo fallback list if not following anyone in DB yet
-    if (users.length === 0 && page === 1) {
-      users = [
-        {
-          id: 'following_demo_1',
-          full_name: 'Priya Patel',
-          username: 'priya_p',
-          avatar_url: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=300',
-          isFollowing: true,
-        },
-        {
-          id: 'following_demo_2',
-          full_name: 'Kabir Mehta',
-          username: 'kabir_m',
-          avatar_url: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=300',
-          isFollowing: true,
-        },
-      ];
+    // If not following anyone explicitly, fetch real registered users from PostgreSQL database
+    if (users.length === 0) {
+      const realUsersRes = await query(
+        `SELECT id, full_name, username, avatar_url,
+                EXISTS(SELECT 1 FROM follows WHERE follower_id = $2 AND following_id = users.id) AS "isFollowing"
+         FROM users
+         WHERE id != $1
+         ORDER BY created_at DESC
+         LIMIT $3 OFFSET $4;`,
+        [targetUserId, req.userId || '', limit, offset]
+      );
+      users = realUsersRes.rows.map((u: any) => ({
+        ...u,
+        avatar_url: formatPublicUrl(u.avatar_url, req),
+      }));
     }
 
     res.json({ success: true, users });
