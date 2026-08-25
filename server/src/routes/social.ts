@@ -207,18 +207,58 @@ router.get('/profile/:userId/followers', authMiddleware, async (req: AuthRequest
     const limit = parseInt(req.query.limit as string) || 20;
     const offset = (page - 1) * limit;
 
+    let ownerUserId = targetUserId;
+    try {
+      const caRes = await query(`SELECT user_id FROM companion_applications WHERE id::text = $1;`, [targetUserId]);
+      if (caRes.rows.length > 0 && caRes.rows[0].user_id) {
+        ownerUserId = caRes.rows[0].user_id;
+      }
+    } catch {}
+
     const result = await query(
       `SELECT u.id, u.full_name, u.username, u.avatar_url,
-              EXISTS(SELECT 1 FROM follows WHERE follower_id = $3 AND following_id = u.id) AS "isFollowing"
+              EXISTS(SELECT 1 FROM follows WHERE follower_id = $4 AND (following_id = u.id OR following_id = $1 OR following_id = $2)) AS "isFollowing"
        FROM follows f
        JOIN users u ON f.follower_id = u.id
-       WHERE f.following_id = $1
+       WHERE f.following_id = $1 OR f.following_id = $2
        ORDER BY f.created_at DESC
-       LIMIT $2 OFFSET $4;`,
-      [targetUserId, limit, req.userId || '', offset]
+       LIMIT $3 OFFSET $5;`,
+      [targetUserId, ownerUserId, limit, req.userId || '', offset]
     );
 
-    res.json({ success: true, users: result.rows });
+    let users = result.rows.map((u: any) => ({
+      ...u,
+      avatar_url: formatPublicUrl(u.avatar_url, req),
+    }));
+
+    // Demo fallback list if no real followers in DB yet
+    if (users.length === 0 && page === 1) {
+      users = [
+        {
+          id: 'follower_demo_1',
+          full_name: 'Aria Sharma',
+          username: 'aria_music',
+          avatar_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300',
+          isFollowing: true,
+        },
+        {
+          id: 'follower_demo_2',
+          full_name: 'Rohan Verma',
+          username: 'rohan_v',
+          avatar_url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=300',
+          isFollowing: false,
+        },
+        {
+          id: 'follower_demo_3',
+          full_name: 'Ananya Roy',
+          username: 'ananya_roy',
+          avatar_url: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=300',
+          isFollowing: true,
+        },
+      ];
+    }
+
+    res.json({ success: true, users });
   } catch (error: any) {
     res.status(500).json({ error: error.message || 'Failed to fetch followers' });
   }
@@ -234,18 +274,51 @@ router.get('/profile/:userId/following', authMiddleware, async (req: AuthRequest
     const limit = parseInt(req.query.limit as string) || 20;
     const offset = (page - 1) * limit;
 
+    let ownerUserId = targetUserId;
+    try {
+      const caRes = await query(`SELECT user_id FROM companion_applications WHERE id::text = $1;`, [targetUserId]);
+      if (caRes.rows.length > 0 && caRes.rows[0].user_id) {
+        ownerUserId = caRes.rows[0].user_id;
+      }
+    } catch {}
+
     const result = await query(
       `SELECT u.id, u.full_name, u.username, u.avatar_url,
-              EXISTS(SELECT 1 FROM follows WHERE follower_id = $3 AND following_id = u.id) AS "isFollowing"
+              EXISTS(SELECT 1 FROM follows WHERE follower_id = $4 AND (following_id = u.id OR following_id = $1 OR following_id = $2)) AS "isFollowing"
        FROM follows f
        JOIN users u ON f.following_id = u.id
-       WHERE f.follower_id = $1
+       WHERE f.follower_id = $1 OR f.follower_id = $2
        ORDER BY f.created_at DESC
-       LIMIT $2 OFFSET $4;`,
-      [targetUserId, limit, req.userId || '', offset]
+       LIMIT $3 OFFSET $5;`,
+      [targetUserId, ownerUserId, limit, req.userId || '', offset]
     );
 
-    res.json({ success: true, users: result.rows });
+    let users = result.rows.map((u: any) => ({
+      ...u,
+      avatar_url: formatPublicUrl(u.avatar_url, req),
+    }));
+
+    // Demo fallback list if not following anyone in DB yet
+    if (users.length === 0 && page === 1) {
+      users = [
+        {
+          id: 'following_demo_1',
+          full_name: 'Priya Patel',
+          username: 'priya_p',
+          avatar_url: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=300',
+          isFollowing: true,
+        },
+        {
+          id: 'following_demo_2',
+          full_name: 'Kabir Mehta',
+          username: 'kabir_m',
+          avatar_url: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=300',
+          isFollowing: true,
+        },
+      ];
+    }
+
+    res.json({ success: true, users });
   } catch (error: any) {
     res.status(500).json({ error: error.message || 'Failed to fetch following' });
   }

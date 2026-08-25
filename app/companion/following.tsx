@@ -1,13 +1,18 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, ActivityIndicator, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, router } from 'expo-router';
 import { socialApi } from '../../lib/services';
 import { Colors } from '../../constants/colors';
+import { Avatar } from '../../components/ui/Avatar';
+import { useAuthStore } from '../../stores/authStore';
 
 export default function FollowingScreen() {
   const { userId } = useLocalSearchParams<{ userId: string }>();
+  const currentSelfId = useAuthStore((s) => s.user?.id);
+  const activeUserId = userId && userId !== 'me' && userId !== 'current_user' ? userId : (currentSelfId || 'me');
+
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -15,10 +20,10 @@ export default function FollowingScreen() {
   const [hasMore, setHasMore] = useState(true);
 
   const fetchFollowing = useCallback(async (p = 1, refresh = false) => {
-    if (!userId) return;
+    if (!activeUserId) return;
     try {
-      const { data } = await socialApi.getFollowing(userId, p);
-      if (data?.success) {
+      const { data } = await socialApi.getFollowing(activeUserId, p);
+      if (data?.success && Array.isArray(data.users)) {
         if (refresh) {
           setUsers(data.users);
         } else {
@@ -30,7 +35,7 @@ export default function FollowingScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [userId]);
+  }, [activeUserId]);
 
   useEffect(() => { fetchFollowing(1, true); }, [fetchFollowing]);
 
@@ -52,16 +57,10 @@ export default function FollowingScreen() {
 
   const renderUser = ({ item, index }: { item: any; index: number }) => (
     <TouchableOpacity style={styles.userRow} onPress={() => router.push(`/companion/${item.id}`)}>
-      {item.avatar_url ? (
-        <Image source={{ uri: item.avatar_url }} style={styles.avatar} />
-      ) : (
-        <View style={[styles.avatar, { backgroundColor: Colors.primarySoft, alignItems: 'center', justifyContent: 'center' }]}>
-          <Text style={styles.avatarFallback}>{(item.full_name || 'U')[0]}</Text>
-        </View>
-      )}
+      <Avatar uri={item.avatar_url} userId={item.id} size="md" />
       <View style={styles.userInfo}>
         <Text style={styles.userName}>{item.full_name || 'User'}</Text>
-        <Text style={styles.userHandle}>@{item.username || 'user'}</Text>
+        <Text style={styles.userHandle}>@{item.username?.replace(/^@/, '') || 'user'}</Text>
       </View>
       <TouchableOpacity
         onPress={() => handleToggleFollow(item.id, index)}
