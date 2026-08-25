@@ -238,6 +238,15 @@ router.get('/profile/:userId/followers', authMiddleware, async (req: AuthRequest
       const caRes = await query(`SELECT user_id FROM companion_applications WHERE id::text = $1;`, [targetUserId]);
       if (caRes.rows.length > 0 && caRes.rows[0].user_id) {
         ownerUserId = caRes.rows[0].user_id;
+      } else {
+        const uRes = await query(`SELECT id FROM users WHERE id::text = $1 OR username = $1 OR username = $2;`, [
+          targetUserId,
+          targetUserId.replace(/^@/, ''),
+        ]);
+        if (uRes.rows.length > 0) {
+          targetUserId = uRes.rows[0].id;
+          ownerUserId = uRes.rows[0].id;
+        }
       }
     } catch {}
 
@@ -295,6 +304,15 @@ router.get('/profile/:userId/following', authMiddleware, async (req: AuthRequest
       const caRes = await query(`SELECT user_id FROM companion_applications WHERE id::text = $1;`, [targetUserId]);
       if (caRes.rows.length > 0 && caRes.rows[0].user_id) {
         ownerUserId = caRes.rows[0].user_id;
+      } else {
+        const uRes = await query(`SELECT id FROM users WHERE id::text = $1 OR username = $1 OR username = $2;`, [
+          targetUserId,
+          targetUserId.replace(/^@/, ''),
+        ]);
+        if (uRes.rows.length > 0) {
+          targetUserId = uRes.rows[0].id;
+          ownerUserId = uRes.rows[0].id;
+        }
       }
     } catch {}
 
