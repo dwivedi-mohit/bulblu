@@ -235,7 +235,7 @@ router.get('/profile/:userId/followers', authMiddleware, async (req: AuthRequest
 
     let ownerUserId = targetUserId;
     try {
-      const caRes = await query(`SELECT user_id FROM companion_applications WHERE id::text = $1;`, [targetUserId]);
+      const caRes = await query(`SELECT user_id FROM companion_applications WHERE id::text = $1 OR user_id::text = $1;`, [targetUserId]);
       if (caRes.rows.length > 0 && caRes.rows[0].user_id) {
         ownerUserId = caRes.rows[0].user_id;
       } else {
@@ -252,10 +252,10 @@ router.get('/profile/:userId/followers', authMiddleware, async (req: AuthRequest
 
     const result = await query(
       `SELECT u.id, u.full_name, u.username, u.avatar_url,
-              EXISTS(SELECT 1 FROM follows WHERE follower_id = $4 AND (following_id = u.id OR following_id = $1 OR following_id = $2)) AS "isFollowing"
+              EXISTS(SELECT 1 FROM follows WHERE follower_id::text = $4::text AND (following_id::text = u.id::text OR following_id::text = $1::text OR following_id::text = $2::text)) AS "isFollowing"
        FROM follows f
-       JOIN users u ON f.follower_id = u.id
-       WHERE f.following_id = $1 OR f.following_id = $2
+       JOIN users u ON f.follower_id::text = u.id::text
+       WHERE f.following_id::text = $1::text OR f.following_id::text = $2::text
        ORDER BY f.created_at DESC
        LIMIT $3 OFFSET $5;`,
       [targetUserId, ownerUserId, limit, req.userId || '', offset]
@@ -270,9 +270,9 @@ router.get('/profile/:userId/followers', authMiddleware, async (req: AuthRequest
     if (users.length === 0) {
       const realUsersRes = await query(
         `SELECT id, full_name, username, avatar_url,
-                EXISTS(SELECT 1 FROM follows WHERE follower_id = $2 AND following_id = users.id) AS "isFollowing"
+                EXISTS(SELECT 1 FROM follows WHERE follower_id::text = $2::text AND following_id::text = users.id::text) AS "isFollowing"
          FROM users
-         WHERE id != $1
+         WHERE id::text != $1::text
          ORDER BY created_at DESC
          LIMIT $3 OFFSET $4;`,
         [targetUserId, req.userId || '', limit, offset]
@@ -301,7 +301,7 @@ router.get('/profile/:userId/following', authMiddleware, async (req: AuthRequest
 
     let ownerUserId = targetUserId;
     try {
-      const caRes = await query(`SELECT user_id FROM companion_applications WHERE id::text = $1;`, [targetUserId]);
+      const caRes = await query(`SELECT user_id FROM companion_applications WHERE id::text = $1 OR user_id::text = $1;`, [targetUserId]);
       if (caRes.rows.length > 0 && caRes.rows[0].user_id) {
         ownerUserId = caRes.rows[0].user_id;
       } else {
@@ -318,10 +318,10 @@ router.get('/profile/:userId/following', authMiddleware, async (req: AuthRequest
 
     const result = await query(
       `SELECT u.id, u.full_name, u.username, u.avatar_url,
-              EXISTS(SELECT 1 FROM follows WHERE follower_id = $4 AND (following_id = u.id OR following_id = $1 OR following_id = $2)) AS "isFollowing"
+              EXISTS(SELECT 1 FROM follows WHERE follower_id::text = $4::text AND (following_id::text = u.id::text OR following_id::text = $1::text OR following_id::text = $2::text)) AS "isFollowing"
        FROM follows f
-       JOIN users u ON f.following_id = u.id
-       WHERE f.follower_id = $1 OR f.follower_id = $2
+       JOIN users u ON f.following_id::text = u.id::text
+       WHERE f.follower_id::text = $1::text OR f.follower_id::text = $2::text
        ORDER BY f.created_at DESC
        LIMIT $3 OFFSET $5;`,
       [targetUserId, ownerUserId, limit, req.userId || '', offset]
@@ -336,9 +336,9 @@ router.get('/profile/:userId/following', authMiddleware, async (req: AuthRequest
     if (users.length === 0) {
       const realUsersRes = await query(
         `SELECT id, full_name, username, avatar_url,
-                EXISTS(SELECT 1 FROM follows WHERE follower_id = $2 AND following_id = users.id) AS "isFollowing"
+                EXISTS(SELECT 1 FROM follows WHERE follower_id::text = $2::text AND following_id::text = users.id::text) AS "isFollowing"
          FROM users
-         WHERE id != $1
+         WHERE id::text != $1::text
          ORDER BY created_at DESC
          LIMIT $3 OFFSET $4;`,
         [targetUserId, req.userId || '', limit, offset]
