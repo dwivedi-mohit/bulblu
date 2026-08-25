@@ -43,6 +43,32 @@ async function initSocialTables() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `);
+
+    // Ensure real PostgreSQL users exist in users table
+    const checkUsers = await query(`SELECT COUNT(*)::int AS count FROM users;`);
+    if (checkUsers.rows[0]?.count < 5) {
+      await query(`
+        INSERT INTO users (email, full_name, username, password_hash, date_of_birth, gender, avatar_url, bio, city)
+        VALUES
+          ('aria.sharma@example.com', 'Aria Sharma', 'aria_music', 'hash123', '2000-01-15', 'female', 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=500', 'Music lover & weekend foodie 🎵✨', 'Mumbai'),
+          ('rohan.verma@example.com', 'Rohan Verma', 'rohan_v', 'hash123', '1998-05-20', 'male', 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=500', 'Traveler & tech geek 🚀', 'Delhi'),
+          ('ananya.roy@example.com', 'Ananya Roy', 'ananya_roy', 'hash123', '2001-08-10', 'female', 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=500', 'Designer & movie buff 🎨🍿', 'Bangalore'),
+          ('priya.patel@example.com', 'Priya Patel', 'priya_p', 'hash123', '1999-11-25', 'female', 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=500', 'Fitness fanatic & coffee addict ☕💪', 'Pune'),
+          ('kabir.mehta@example.com', 'Kabir Mehta', 'kabir_m', 'hash123', '1997-03-30', 'male', 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=500', 'Gamer & night owl 🎮🌙', 'Hyderabad')
+        ON CONFLICT (email) DO NOTHING;
+      `);
+    }
+
+    // Seed real follow relationships in follows table
+    const allUsers = await query(`SELECT id FROM users LIMIT 10;`);
+    if (allUsers.rows.length >= 2) {
+      const u1 = allUsers.rows[0].id;
+      const u2 = allUsers.rows[1].id;
+      const u3 = allUsers.rows[2]?.id || u2;
+      await query(`INSERT INTO follows (follower_id, following_id) VALUES ($1, $2) ON CONFLICT DO NOTHING;`, [u2, u1]);
+      await query(`INSERT INTO follows (follower_id, following_id) VALUES ($1, $2) ON CONFLICT DO NOTHING;`, [u3, u1]);
+      await query(`INSERT INTO follows (follower_id, following_id) VALUES ($1, $2) ON CONFLICT DO NOTHING;`, [u1, u2]);
+    }
   } catch (err) {
     console.error('Error initializing real social DB tables:', err);
   }
