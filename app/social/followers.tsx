@@ -118,8 +118,6 @@ const styles = StyleSheet.create({
   userRow: {
     flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12,
   },
-  avatar: { width: 44, height: 44, borderRadius: 22 },
-  avatarFallback: { fontFamily: 'SpaceGrotesk-Bold', fontSize: 18, color: Colors.primary },
   userInfo: { flex: 1, marginLeft: 12 },
   userName: { fontFamily: 'SpaceGrotesk-Bold', fontSize: 15, color: Colors.textPrimary },
   userHandle: { fontFamily: 'Inter-Regular', fontSize: 13, color: Colors.textTertiary, marginTop: 1 },

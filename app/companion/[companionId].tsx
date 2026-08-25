@@ -419,7 +419,7 @@ export default function CustomCompanionProfileScreen() {
               <View style={styles.statDivider} />
 
               <TouchableOpacity
-                onPress={() => router.push({ pathname: '/companion/followers', params: { userId: targetId } })}
+                onPress={() => router.push({ pathname: '/social/followers', params: { userId: targetId } })}
                 style={styles.statBox}
               >
                 <Text style={styles.statNumber}>{followersCount.toLocaleString()}</Text>
@@ -429,7 +429,7 @@ export default function CustomCompanionProfileScreen() {
               <View style={styles.statDivider} />
 
               <TouchableOpacity
-                onPress={() => router.push({ pathname: '/companion/following', params: { userId: targetId } })}
+                onPress={() => router.push({ pathname: '/social/following', params: { userId: targetId } })}
                 style={styles.statBox}
               >
                 <Text style={styles.statNumber}>{followingCount.toLocaleString()}</Text>
