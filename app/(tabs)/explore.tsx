@@ -22,6 +22,7 @@ import { Spacing, Radius } from '../../constants/spacing';
 import { Avatar } from '../../components/ui/Avatar';
 import { DisplayName } from '../../components/ui/UserText';
 import { StoryRing } from '../../components/ui/StoryRing';
+import { WePlayGameCard } from '../../components/game/WePlayGameCard';
 import { matchApi, storyApi, voiceRoomApi, notificationApi, postApi } from '../../lib/services';
 import { useAuthStore } from '../../stores/authStore';
 import { useCallStore } from '../../stores/callStore';
@@ -289,150 +290,106 @@ export default function ExploreScreen() {
               </TouchableOpacity>
             </View>
 
-            {/* 3. Hero Feature Card (1v1 Video - Glowing 3D Glass) */}
+            {/* 3. Hero Feature Card 1 (1v1 Video Match - WePlay Metallic Blue/Cyan Hero Card) */}
             <View style={styles.heroSection}>
-              <TouchableOpacity
-                style={[
-                  styles.heroCardTouch,
-                  styles.glowCard,
-                  { borderColor: '#A855F7', shadowColor: '#9333EA' },
-                ]}
+              <WePlayGameCard
+                title="1v1 Video Match"
+                subtitle="Instant 4K Video Match & Chat"
+                image={require('../../assets/images/art_video_3d.png')}
+                gradientColors={['#0284C7', '#0369A1', '#075985']}
+                borderColor="#F59E0B"
+                accentGold={true}
+                isFullWidth={true}
+                badgeText="HOT ⚡"
                 onPress={() => router.push('/(tabs)/video')}
-                activeOpacity={0.9}
-              >
-                <Image
-                  source={require('../../assets/images/ref_video.jpg')}
-                  style={styles.heroCardImage}
-                  resizeMode="cover"
-                />
-              </TouchableOpacity>
+              />
             </View>
 
-            {/* 4. WePlay 2-Column Games Grid (Glowing 3D Strokes & Blended Background) */}
+            {/* 4. Hero Feature Card 2 (Ludo Party Room - WePlay Metallic Purple Hero Card) */}
+            <View style={[styles.heroSection, { marginTop: 6 }]}>
+              <WePlayGameCard
+                title="Ludo Party"
+                subtitle="4 Player Real-Time Voice Ludo"
+                image={require('../../assets/images/art_ludo_3d.png')}
+                gradientColors={['#7C3AED', '#6D28D9', '#4C1D95']}
+                borderColor="#FBBF24"
+                accentGold={true}
+                isFullWidth={true}
+                badgeText="NEW ✨"
+                onPress={() => router.push('/game/ludo_party_room_1' as any)}
+              />
+            </View>
+
+            {/* 5. WePlay 2-Column Metallic Games Grid */}
             <View style={styles.gridSection}>
-              {/* Row 1: Ludo Party (Cyan) + Truth & Dare (Pink) */}
+              {/* Row 1: Truth & Dare + Draw & Guess */}
               <View style={styles.gridRow}>
-                <TouchableOpacity
-                  style={[
-                    styles.gridCardTouch,
-                    styles.glowCard,
-                    { borderColor: '#06B6D4', shadowColor: '#0891B2' },
-                  ]}
-                  onPress={() => router.push('/game/ludo_party_room_1' as any)}
-                  activeOpacity={0.9}
-                >
-                  <Image
-                    source={require('../../assets/images/ref_ludo.jpg')}
-                    style={styles.gridCardImage}
-                    resizeMode="cover"
-                  />
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[
-                    styles.gridCardTouch,
-                    styles.glowCard,
-                    { borderColor: '#EC4899', shadowColor: '#DB2777' },
-                  ]}
+                <WePlayGameCard
+                  title="Truth & Dare"
+                  subtitle="Fun Challenges"
+                  image={require('../../assets/images/art_truth_3d.png')}
+                  gradientColors={['#DB2777', '#BE185D', '#9F1239']}
+                  borderColor="#F472B6"
+                  accentGold={false}
                   onPress={() => router.push('/(tabs)/rent')}
-                  activeOpacity={0.9}
-                >
-                  <Image
-                    source={require('../../assets/images/ref_truth.jpg')}
-                    style={styles.gridCardImage}
-                    resizeMode="cover"
-                  />
-                </TouchableOpacity>
-              </View>
-
-              {/* Row 2: Draw & Guess (Gold) + Jackaro (Crimson) */}
-              <View style={styles.gridRow}>
-                <TouchableOpacity
-                  style={[
-                    styles.gridCardTouch,
-                    styles.glowCard,
-                    { borderColor: '#F59E0B', shadowColor: '#D97706' },
-                  ]}
-                  onPress={() => router.push('/(tabs)/rent')}
-                  activeOpacity={0.9}
-                >
-                  <Image
-                    source={require('../../assets/images/ref_draw.jpg')}
-                    style={styles.gridCardImage}
-                    resizeMode="cover"
-                  />
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[
-                    styles.gridCardTouch,
-                    styles.glowCard,
-                    { borderColor: '#E11D48', shadowColor: '#BE123C' },
-                  ]}
-                  onPress={() => router.push('/(tabs)/rent')}
-                  activeOpacity={0.9}
-                >
-                  <Image
-                    source={require('../../assets/images/ref_jackaro.jpg')}
-                    style={styles.gridCardImage}
-                    resizeMode="cover"
-                  />
-                </TouchableOpacity>
-              </View>
-
-              {/* Row 3: UNO (Lavender) + Singing & Karaoke (Peach Coral) */}
-              <View style={styles.gridRow}>
-                <TouchableOpacity
-                  style={[
-                    styles.gridCardTouch,
-                    styles.glowCard,
-                    { borderColor: '#6366F1', shadowColor: '#4F46E5' },
-                  ]}
-                  onPress={() => router.push('/(tabs)/rent')}
-                  activeOpacity={0.9}
-                >
-                  <Image
-                    source={require('../../assets/images/ref_uno.jpg')}
-                    style={styles.gridCardImage}
-                    resizeMode="cover"
-                  />
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[
-                    styles.gridCardTouch,
-                    styles.glowCard,
-                    { borderColor: '#F43F5E', shadowColor: '#E11D48' },
-                  ]}
-                  onPress={() => router.push('/(tabs)/voice')}
-                  activeOpacity={0.9}
-                >
-                  <Image
-                    source={require('../../assets/images/ref_singing.jpg')}
-                    style={styles.gridCardImage}
-                    resizeMode="cover"
-                  />
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            {/* 5. Featured Bottom Hero Card (Voice Party Banner - Teal Glow) */}
-            <View style={[styles.heroSection, { marginTop: 10 }]}>
-              <TouchableOpacity
-                style={[
-                  styles.heroCardTouch,
-                  styles.glowCard,
-                  { borderColor: '#14B8A6', shadowColor: '#0D9488' },
-                ]}
-                onPress={() => router.push('/(tabs)/voice')}
-                activeOpacity={0.9}
-              >
-                <Image
-                  source={require('../../assets/images/ref_voice.jpg')}
-                  style={styles.heroCardImage}
-                  resizeMode="cover"
                 />
-              </TouchableOpacity>
+
+                <WePlayGameCard
+                  title="Draw & Guess"
+                  subtitle="Draw & Win Coins"
+                  image={require('../../assets/images/art_draw_3d.png')}
+                  gradientColors={['#D97706', '#B45309', '#78350F']}
+                  borderColor="#FDE047"
+                  accentGold={true}
+                  onPress={() => router.push('/(tabs)/rent')}
+                />
+              </View>
+
+              {/* Row 2: Jackaro + UNO */}
+              <View style={styles.gridRow}>
+                <WePlayGameCard
+                  title="Jackaro"
+                  subtitle="Cards & Marble Bet"
+                  image={require('../../assets/images/ref_jackaro.jpg')}
+                  gradientColors={['#B91C1C', '#991B1B', '#7F1D1D']}
+                  borderColor="#FCA5A5"
+                  accentGold={false}
+                  onPress={() => router.push('/(tabs)/rent')}
+                />
+
+                <WePlayGameCard
+                  title="UNO Party"
+                  subtitle="Color & Number Match"
+                  image={require('../../assets/images/ref_uno.jpg')}
+                  gradientColors={['#4F46E5', '#4338CA', '#3730A3']}
+                  borderColor="#818CF8"
+                  accentGold={false}
+                  onPress={() => router.push('/(tabs)/rent')}
+                />
+              </View>
+
+              {/* Row 3: Singing & Karaoke + Voice Party */}
+              <View style={styles.gridRow}>
+                <WePlayGameCard
+                  title="Karaoke Party"
+                  subtitle="Singing & Beat Match"
+                  image={require('../../assets/images/ref_singing.jpg')}
+                  gradientColors={['#F43F5E', '#E11D48', '#BE123C']}
+                  borderColor="#FDA4AF"
+                  accentGold={false}
+                  onPress={() => router.push('/(tabs)/voice')}
+                />
+
+                <WePlayGameCard
+                  title="Voice Rooms"
+                  subtitle="Live 8-Seat Party"
+                  image={require('../../assets/images/art_voice_3d.png')}
+                  gradientColors={['#0D9488', '#0F766E', '#115E59']}
+                  borderColor="#5EEAD4"
+                  accentGold={true}
+                  onPress={() => router.push('/(tabs)/voice')}
+                />
+              </View>
             </View>
 
             {/* 5. Live Voice Rooms Section (Redesigned Modern Glassmorphism UI) */}
