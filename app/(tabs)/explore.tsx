@@ -289,46 +289,58 @@ export default function ExploreScreen() {
               </TouchableOpacity>
             </View>
 
-            {/* 3. Hero Feature Card (1v1 Video - Soft Lavender Theme) */}
+            {/* 3. Hero Feature Card (1v1 Video - Glowing 3D Glass) */}
             <View style={styles.heroSection}>
               <TouchableOpacity
-                style={[styles.heroCardTouch, { backgroundColor: '#EDE7F6' }]}
+                style={[
+                  styles.heroCardTouch,
+                  styles.glowCard,
+                  { borderColor: '#A855F7', shadowColor: '#9333EA' },
+                ]}
                 onPress={() => router.push('/(tabs)/video')}
                 activeOpacity={0.9}
               >
                 <Image
                   source={require('../../assets/images/ref_video.jpg')}
                   style={styles.heroCardImage}
-                  resizeMode="contain"
+                  resizeMode="cover"
                 />
               </TouchableOpacity>
             </View>
 
-            {/* 4. WePlay 2-Column Games Grid (3 Balanced Rows of 6 Cards) */}
+            {/* 4. WePlay 2-Column Games Grid (Glowing 3D Strokes & Blended Background) */}
             <View style={styles.gridSection}>
               {/* Row 1: Ludo Party (Cyan) + Truth & Dare (Pink) */}
               <View style={styles.gridRow}>
                 <TouchableOpacity
-                  style={[styles.gridCardTouch, { backgroundColor: '#E0F7FA' }]}
+                  style={[
+                    styles.gridCardTouch,
+                    styles.glowCard,
+                    { borderColor: '#06B6D4', shadowColor: '#0891B2' },
+                  ]}
                   onPress={() => router.push('/game/ludo_party_room_1' as any)}
                   activeOpacity={0.9}
                 >
                   <Image
                     source={require('../../assets/images/ref_ludo.jpg')}
                     style={styles.gridCardImage}
-                    resizeMode="contain"
+                    resizeMode="cover"
                   />
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                  style={[styles.gridCardTouch, { backgroundColor: '#FCE4EC' }]}
+                  style={[
+                    styles.gridCardTouch,
+                    styles.glowCard,
+                    { borderColor: '#EC4899', shadowColor: '#DB2777' },
+                  ]}
                   onPress={() => router.push('/(tabs)/rent')}
                   activeOpacity={0.9}
                 >
                   <Image
                     source={require('../../assets/images/ref_truth.jpg')}
                     style={styles.gridCardImage}
-                    resizeMode="contain"
+                    resizeMode="cover"
                   />
                 </TouchableOpacity>
               </View>
@@ -336,26 +348,34 @@ export default function ExploreScreen() {
               {/* Row 2: Draw & Guess (Gold) + Jackaro (Crimson) */}
               <View style={styles.gridRow}>
                 <TouchableOpacity
-                  style={[styles.gridCardTouch, { backgroundColor: '#FFF8E1' }]}
+                  style={[
+                    styles.gridCardTouch,
+                    styles.glowCard,
+                    { borderColor: '#F59E0B', shadowColor: '#D97706' },
+                  ]}
                   onPress={() => router.push('/(tabs)/rent')}
                   activeOpacity={0.9}
                 >
                   <Image
                     source={require('../../assets/images/ref_draw.jpg')}
                     style={styles.gridCardImage}
-                    resizeMode="contain"
+                    resizeMode="cover"
                   />
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                  style={[styles.gridCardTouch, { backgroundColor: '#E0F2F1' }]}
+                  style={[
+                    styles.gridCardTouch,
+                    styles.glowCard,
+                    { borderColor: '#E11D48', shadowColor: '#BE123C' },
+                  ]}
                   onPress={() => router.push('/(tabs)/rent')}
                   activeOpacity={0.9}
                 >
                   <Image
                     source={require('../../assets/images/ref_jackaro.jpg')}
                     style={styles.gridCardImage}
-                    resizeMode="contain"
+                    resizeMode="cover"
                   />
                 </TouchableOpacity>
               </View>
@@ -363,42 +383,54 @@ export default function ExploreScreen() {
               {/* Row 3: UNO (Lavender) + Singing & Karaoke (Peach Coral) */}
               <View style={styles.gridRow}>
                 <TouchableOpacity
-                  style={[styles.gridCardTouch, { backgroundColor: '#F3E5F5' }]}
+                  style={[
+                    styles.gridCardTouch,
+                    styles.glowCard,
+                    { borderColor: '#6366F1', shadowColor: '#4F46E5' },
+                  ]}
                   onPress={() => router.push('/(tabs)/rent')}
                   activeOpacity={0.9}
                 >
                   <Image
                     source={require('../../assets/images/ref_uno.jpg')}
                     style={styles.gridCardImage}
-                    resizeMode="contain"
+                    resizeMode="cover"
                   />
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                  style={[styles.gridCardTouch, { backgroundColor: '#FFF3E0' }]}
+                  style={[
+                    styles.gridCardTouch,
+                    styles.glowCard,
+                    { borderColor: '#F43F5E', shadowColor: '#E11D48' },
+                  ]}
                   onPress={() => router.push('/(tabs)/voice')}
                   activeOpacity={0.9}
                 >
                   <Image
                     source={require('../../assets/images/ref_singing.jpg')}
                     style={styles.gridCardImage}
-                    resizeMode="contain"
+                    resizeMode="cover"
                   />
                 </TouchableOpacity>
               </View>
             </View>
 
-            {/* 5. Featured Bottom Hero Card (Voice Party 4K Banner - Fresh Mint Theme) */}
+            {/* 5. Featured Bottom Hero Card (Voice Party Banner - Teal Glow) */}
             <View style={[styles.heroSection, { marginTop: 10 }]}>
               <TouchableOpacity
-                style={[styles.heroCardTouch, { backgroundColor: '#E8F5E9' }]}
+                style={[
+                  styles.heroCardTouch,
+                  styles.glowCard,
+                  { borderColor: '#14B8A6', shadowColor: '#0D9488' },
+                ]}
                 onPress={() => router.push('/(tabs)/voice')}
                 activeOpacity={0.9}
               >
                 <Image
                   source={require('../../assets/images/ref_voice.jpg')}
                   style={styles.heroCardImage}
-                  resizeMode="contain"
+                  resizeMode="cover"
                 />
               </TouchableOpacity>
             </View>
@@ -979,15 +1011,12 @@ const styles = StyleSheet.create({
     height: HERO_CARD_HEIGHT,
     borderRadius: 22,
     overflow: 'hidden',
-    shadowColor: '#0F766E',
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 3,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'transparent',
   },
   heroCardImage: {
     width: '100%',
     height: '100%',
+    borderRadius: 22,
   },
 
   /* 2x2 Party Games Grid */
@@ -1005,15 +1034,19 @@ const styles = StyleSheet.create({
     height: GRID_CARD_HEIGHT,
     borderRadius: 18,
     overflow: 'hidden',
-    shadowColor: '#0F172A',
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-    elevation: 3,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'transparent',
   },
   gridCardImage: {
     width: '100%',
     height: '100%',
+    borderRadius: 18,
+  },
+  glowCard: {
+    borderWidth: 1.8,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    elevation: 6,
   },
 
   /* Stories Bar */
