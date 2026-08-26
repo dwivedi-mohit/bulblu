@@ -290,58 +290,46 @@ export default function ExploreScreen() {
               </TouchableOpacity>
             </View>
 
-            {/* 3. Hero Feature Card (1v1 Video - Exact Fit 3D Artwork) */}
+            {/* 3. Hero Feature Card (1v1 Video - Seamless 3D Pill Banner) */}
             <View style={styles.heroSection}>
               <TouchableOpacity
-                style={[
-                  styles.heroCardTouch,
-                  styles.weplayGoldFrame,
-                  { borderColor: '#F59E0B', shadowColor: '#D97706' },
-                ]}
+                style={styles.heroCardTouch}
                 onPress={() => router.push('/(tabs)/video')}
                 activeOpacity={0.9}
               >
                 <Image
                   source={require('../../assets/images/ref_video.jpg')}
-                  style={styles.heroCardImage}
-                  resizeMode="stretch"
+                  style={[styles.heroCardImage, { transform: [{ scale: 1.14 }] }]}
+                  resizeMode="cover"
                 />
               </TouchableOpacity>
             </View>
 
-            {/* 4. WePlay 2-Column Games Grid (Exact Corner Fit Full 3D Graphics) */}
+            {/* 4. WePlay 2-Column Games Grid (Seamless 3D Pill Banners - Zero White Space) */}
             <View style={styles.gridSection}>
               {/* Row 1: Ludo Party (Cyan) + Truth & Dare (Pink) */}
               <View style={styles.gridRow}>
                 <TouchableOpacity
-                  style={[
-                    styles.gridCardTouch,
-                    styles.weplayGoldFrame,
-                    { borderColor: '#06B6D4', shadowColor: '#0891B2' },
-                  ]}
+                  style={styles.gridCardTouch}
                   onPress={() => router.push('/game/ludo_party_room_1' as any)}
                   activeOpacity={0.9}
                 >
                   <Image
                     source={require('../../assets/images/ref_ludo.jpg')}
-                    style={styles.gridCardImage}
-                    resizeMode="stretch"
+                    style={[styles.gridCardImage, { transform: [{ scale: 1.14 }] }]}
+                    resizeMode="cover"
                   />
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                  style={[
-                    styles.gridCardTouch,
-                    styles.weplayGoldFrame,
-                    { borderColor: '#EC4899', shadowColor: '#DB2777' },
-                  ]}
+                  style={styles.gridCardTouch}
                   onPress={() => router.push('/(tabs)/rent')}
                   activeOpacity={0.9}
                 >
                   <Image
                     source={require('../../assets/images/ref_truth.jpg')}
-                    style={styles.gridCardImage}
-                    resizeMode="stretch"
+                    style={[styles.gridCardImage, { transform: [{ scale: 1.14 }] }]}
+                    resizeMode="cover"
                   />
                 </TouchableOpacity>
               </View>
@@ -349,34 +337,26 @@ export default function ExploreScreen() {
               {/* Row 2: Draw & Guess (Gold) + Jackaro (Crimson) */}
               <View style={styles.gridRow}>
                 <TouchableOpacity
-                  style={[
-                    styles.gridCardTouch,
-                    styles.weplayGoldFrame,
-                    { borderColor: '#F59E0B', shadowColor: '#D97706' },
-                  ]}
+                  style={styles.gridCardTouch}
                   onPress={() => router.push('/(tabs)/rent')}
                   activeOpacity={0.9}
                 >
                   <Image
                     source={require('../../assets/images/ref_draw.jpg')}
-                    style={styles.gridCardImage}
-                    resizeMode="stretch"
+                    style={[styles.gridCardImage, { transform: [{ scale: 1.14 }] }]}
+                    resizeMode="cover"
                   />
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                  style={[
-                    styles.gridCardTouch,
-                    styles.weplayGoldFrame,
-                    { borderColor: '#E11D48', shadowColor: '#BE123C' },
-                  ]}
+                  style={styles.gridCardTouch}
                   onPress={() => router.push('/(tabs)/rent')}
                   activeOpacity={0.9}
                 >
                   <Image
                     source={require('../../assets/images/ref_jackaro.jpg')}
-                    style={styles.gridCardImage}
-                    resizeMode="stretch"
+                    style={[styles.gridCardImage, { transform: [{ scale: 1.14 }] }]}
+                    resizeMode="cover"
                   />
                 </TouchableOpacity>
               </View>
@@ -384,54 +364,42 @@ export default function ExploreScreen() {
               {/* Row 3: UNO (Lavender) + Singing & Karaoke (Peach Coral) */}
               <View style={styles.gridRow}>
                 <TouchableOpacity
-                  style={[
-                    styles.gridCardTouch,
-                    styles.weplayGoldFrame,
-                    { borderColor: '#6366F1', shadowColor: '#4F46E5' },
-                  ]}
+                  style={styles.gridCardTouch}
                   onPress={() => router.push('/(tabs)/rent')}
                   activeOpacity={0.9}
                 >
                   <Image
                     source={require('../../assets/images/ref_uno.jpg')}
-                    style={styles.gridCardImage}
-                    resizeMode="stretch"
+                    style={[styles.gridCardImage, { transform: [{ scale: 1.14 }] }]}
+                    resizeMode="cover"
                   />
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                  style={[
-                    styles.gridCardTouch,
-                    styles.weplayGoldFrame,
-                    { borderColor: '#F43F5E', shadowColor: '#E11D48' },
-                  ]}
+                  style={styles.gridCardTouch}
                   onPress={() => router.push('/(tabs)/voice')}
                   activeOpacity={0.9}
                 >
                   <Image
                     source={require('../../assets/images/ref_singing.jpg')}
-                    style={styles.gridCardImage}
-                    resizeMode="stretch"
+                    style={[styles.gridCardImage, { transform: [{ scale: 1.14 }] }]}
+                    resizeMode="cover"
                   />
                 </TouchableOpacity>
               </View>
             </View>
 
-            {/* 5. Featured Bottom Hero Card (Voice Party 4K Banner - Exact Fit) */}
+            {/* 5. Featured Bottom Hero Card (Voice Party 4K Banner - Seamless 3D) */}
             <View style={[styles.heroSection, { marginTop: 10 }]}>
               <TouchableOpacity
-                style={[
-                  styles.heroCardTouch,
-                  styles.weplayGoldFrame,
-                  { borderColor: '#14B8A6', shadowColor: '#0D9488' },
-                ]}
+                style={styles.heroCardTouch}
                 onPress={() => router.push('/(tabs)/voice')}
                 activeOpacity={0.9}
               >
                 <Image
                   source={require('../../assets/images/ref_voice.jpg')}
-                  style={styles.heroCardImage}
-                  resizeMode="stretch"
+                  style={[styles.heroCardImage, { transform: [{ scale: 1.14 }] }]}
+                  resizeMode="cover"
                 />
               </TouchableOpacity>
             </View>
@@ -1010,13 +978,16 @@ const styles = StyleSheet.create({
   heroCardTouch: {
     width: '100%',
     height: HERO_CARD_HEIGHT,
-    borderRadius: 22,
+    borderRadius: 24,
     overflow: 'hidden',
+    shadowColor: '#0F172A',
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    elevation: 4,
   },
   heroCardImage: {
     width: '100%',
     height: '100%',
-    borderRadius: 20,
   },
 
   /* 2x2 Party Games Grid */
@@ -1032,20 +1003,16 @@ const styles = StyleSheet.create({
   gridCardTouch: {
     width: GRID_CARD_WIDTH,
     height: GRID_CARD_HEIGHT,
-    borderRadius: 20,
+    borderRadius: 22,
     overflow: 'hidden',
+    shadowColor: '#0F172A',
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    elevation: 4,
   },
   gridCardImage: {
     width: '100%',
     height: '100%',
-    borderRadius: 18,
-  },
-  weplayGoldFrame: {
-    borderWidth: 2,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 8,
-    elevation: 6,
   },
 
   /* Stories Bar */
