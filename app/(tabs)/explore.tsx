@@ -290,7 +290,7 @@ export default function ExploreScreen() {
               </TouchableOpacity>
             </View>
 
-            {/* 3. Hero Feature Card (1v1 Video - WePlay Golden Metallic Frame) */}
+            {/* 3. Hero Feature Card (1v1 Video - Exact Fit 3D Artwork) */}
             <View style={styles.heroSection}>
               <TouchableOpacity
                 style={[
@@ -301,16 +301,15 @@ export default function ExploreScreen() {
                 onPress={() => router.push('/(tabs)/video')}
                 activeOpacity={0.9}
               >
-                <View style={styles.goldInnerBorder} />
                 <Image
                   source={require('../../assets/images/ref_video.jpg')}
                   style={styles.heroCardImage}
-                  resizeMode="contain"
+                  resizeMode="stretch"
                 />
               </TouchableOpacity>
             </View>
 
-            {/* 4. WePlay 2-Column Games Grid (Original 3D Full Graphics in Exact WePlay Metallic Frames) */}
+            {/* 4. WePlay 2-Column Games Grid (Exact Corner Fit Full 3D Graphics) */}
             <View style={styles.gridSection}>
               {/* Row 1: Ludo Party (Cyan) + Truth & Dare (Pink) */}
               <View style={styles.gridRow}>
@@ -323,11 +322,10 @@ export default function ExploreScreen() {
                   onPress={() => router.push('/game/ludo_party_room_1' as any)}
                   activeOpacity={0.9}
                 >
-                  <View style={styles.goldInnerBorder} />
                   <Image
                     source={require('../../assets/images/ref_ludo.jpg')}
                     style={styles.gridCardImage}
-                    resizeMode="contain"
+                    resizeMode="stretch"
                   />
                 </TouchableOpacity>
 
@@ -340,11 +338,10 @@ export default function ExploreScreen() {
                   onPress={() => router.push('/(tabs)/rent')}
                   activeOpacity={0.9}
                 >
-                  <View style={styles.goldInnerBorder} />
                   <Image
                     source={require('../../assets/images/ref_truth.jpg')}
                     style={styles.gridCardImage}
-                    resizeMode="contain"
+                    resizeMode="stretch"
                   />
                 </TouchableOpacity>
               </View>
@@ -360,11 +357,10 @@ export default function ExploreScreen() {
                   onPress={() => router.push('/(tabs)/rent')}
                   activeOpacity={0.9}
                 >
-                  <View style={styles.goldInnerBorder} />
                   <Image
                     source={require('../../assets/images/ref_draw.jpg')}
                     style={styles.gridCardImage}
-                    resizeMode="contain"
+                    resizeMode="stretch"
                   />
                 </TouchableOpacity>
 
@@ -377,11 +373,10 @@ export default function ExploreScreen() {
                   onPress={() => router.push('/(tabs)/rent')}
                   activeOpacity={0.9}
                 >
-                  <View style={styles.goldInnerBorder} />
                   <Image
                     source={require('../../assets/images/ref_jackaro.jpg')}
                     style={styles.gridCardImage}
-                    resizeMode="contain"
+                    resizeMode="stretch"
                   />
                 </TouchableOpacity>
               </View>
@@ -397,11 +392,10 @@ export default function ExploreScreen() {
                   onPress={() => router.push('/(tabs)/rent')}
                   activeOpacity={0.9}
                 >
-                  <View style={styles.goldInnerBorder} />
                   <Image
                     source={require('../../assets/images/ref_uno.jpg')}
                     style={styles.gridCardImage}
-                    resizeMode="contain"
+                    resizeMode="stretch"
                   />
                 </TouchableOpacity>
 
@@ -414,17 +408,16 @@ export default function ExploreScreen() {
                   onPress={() => router.push('/(tabs)/voice')}
                   activeOpacity={0.9}
                 >
-                  <View style={styles.goldInnerBorder} />
                   <Image
                     source={require('../../assets/images/ref_singing.jpg')}
                     style={styles.gridCardImage}
-                    resizeMode="contain"
+                    resizeMode="stretch"
                   />
                 </TouchableOpacity>
               </View>
             </View>
 
-            {/* 5. Featured Bottom Hero Card (Voice Party 4K Banner - Teal WePlay Gold Frame) */}
+            {/* 5. Featured Bottom Hero Card (Voice Party 4K Banner - Exact Fit) */}
             <View style={[styles.heroSection, { marginTop: 10 }]}>
               <TouchableOpacity
                 style={[
@@ -435,11 +428,10 @@ export default function ExploreScreen() {
                 onPress={() => router.push('/(tabs)/voice')}
                 activeOpacity={0.9}
               >
-                <View style={styles.goldInnerBorder} />
                 <Image
                   source={require('../../assets/images/ref_voice.jpg')}
                   style={styles.heroCardImage}
-                  resizeMode="contain"
+                  resizeMode="stretch"
                 />
               </TouchableOpacity>
             </View>
@@ -1020,7 +1012,6 @@ const styles = StyleSheet.create({
     height: HERO_CARD_HEIGHT,
     borderRadius: 22,
     overflow: 'hidden',
-    backgroundColor: 'transparent',
   },
   heroCardImage: {
     width: '100%',
@@ -1041,33 +1032,20 @@ const styles = StyleSheet.create({
   gridCardTouch: {
     width: GRID_CARD_WIDTH,
     height: GRID_CARD_HEIGHT,
-    borderRadius: 18,
+    borderRadius: 20,
     overflow: 'hidden',
-    backgroundColor: 'transparent',
   },
   gridCardImage: {
     width: '100%',
     height: '100%',
-    borderRadius: 16,
+    borderRadius: 18,
   },
   weplayGoldFrame: {
-    borderWidth: 2.2,
+    borderWidth: 2,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.35,
     shadowRadius: 8,
     elevation: 6,
-  },
-  goldInnerBorder: {
-    position: 'absolute',
-    top: 2,
-    left: 2,
-    right: 2,
-    bottom: 2,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 215, 0, 0.45)',
-    zIndex: 10,
-    pointerEvents: 'none',
   },
 
   /* Stories Bar */
