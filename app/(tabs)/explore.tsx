@@ -290,7 +290,7 @@ export default function ExploreScreen() {
               </TouchableOpacity>
             </View>
 
-            {/* 3. Hero Feature Card (1v1 Video - Seamless 3D Pill Banner) */}
+            {/* 3. Hero Feature Card (1v1 Video) */}
             <View style={styles.heroSection}>
               <TouchableOpacity
                 style={styles.heroCardTouch}
@@ -299,15 +299,15 @@ export default function ExploreScreen() {
               >
                 <Image
                   source={require('../../assets/images/ref_video.jpg')}
-                  style={[styles.heroCardImage, { transform: [{ scale: 1.14 }] }]}
+                  style={styles.heroCardImage}
                   resizeMode="cover"
                 />
               </TouchableOpacity>
             </View>
 
-            {/* 4. WePlay 2-Column Games Grid (Seamless 3D Pill Banners - Zero White Space) */}
+            {/* 4. WePlay 2-Column Games Grid */}
             <View style={styles.gridSection}>
-              {/* Row 1: Ludo Party (Cyan) + Truth & Dare (Pink) */}
+              {/* Row 1: Ludo Party + Truth & Dare */}
               <View style={styles.gridRow}>
                 <TouchableOpacity
                   style={styles.gridCardTouch}
@@ -316,7 +316,7 @@ export default function ExploreScreen() {
                 >
                   <Image
                     source={require('../../assets/images/ref_ludo.jpg')}
-                    style={[styles.gridCardImage, { transform: [{ scale: 1.14 }] }]}
+                    style={styles.gridCardImage}
                     resizeMode="cover"
                   />
                 </TouchableOpacity>
@@ -328,13 +328,13 @@ export default function ExploreScreen() {
                 >
                   <Image
                     source={require('../../assets/images/ref_truth.jpg')}
-                    style={[styles.gridCardImage, { transform: [{ scale: 1.14 }] }]}
+                    style={styles.gridCardImage}
                     resizeMode="cover"
                   />
                 </TouchableOpacity>
               </View>
 
-              {/* Row 2: Draw & Guess (Gold) + Jackaro (Crimson) */}
+              {/* Row 2: Draw & Guess + Jackaro */}
               <View style={styles.gridRow}>
                 <TouchableOpacity
                   style={styles.gridCardTouch}
@@ -343,7 +343,7 @@ export default function ExploreScreen() {
                 >
                   <Image
                     source={require('../../assets/images/ref_draw.jpg')}
-                    style={[styles.gridCardImage, { transform: [{ scale: 1.14 }] }]}
+                    style={styles.gridCardImage}
                     resizeMode="cover"
                   />
                 </TouchableOpacity>
@@ -355,13 +355,13 @@ export default function ExploreScreen() {
                 >
                   <Image
                     source={require('../../assets/images/ref_jackaro.jpg')}
-                    style={[styles.gridCardImage, { transform: [{ scale: 1.14 }] }]}
+                    style={styles.gridCardImage}
                     resizeMode="cover"
                   />
                 </TouchableOpacity>
               </View>
 
-              {/* Row 3: UNO (Lavender) + Singing & Karaoke (Peach Coral) */}
+              {/* Row 3: UNO + Singing & Karaoke */}
               <View style={styles.gridRow}>
                 <TouchableOpacity
                   style={styles.gridCardTouch}
@@ -370,7 +370,7 @@ export default function ExploreScreen() {
                 >
                   <Image
                     source={require('../../assets/images/ref_uno.jpg')}
-                    style={[styles.gridCardImage, { transform: [{ scale: 1.14 }] }]}
+                    style={styles.gridCardImage}
                     resizeMode="cover"
                   />
                 </TouchableOpacity>
@@ -382,14 +382,14 @@ export default function ExploreScreen() {
                 >
                   <Image
                     source={require('../../assets/images/ref_singing.jpg')}
-                    style={[styles.gridCardImage, { transform: [{ scale: 1.14 }] }]}
+                    style={styles.gridCardImage}
                     resizeMode="cover"
                   />
                 </TouchableOpacity>
               </View>
             </View>
 
-            {/* 5. Featured Bottom Hero Card (Voice Party 4K Banner - Seamless 3D) */}
+            {/* 5. Featured Bottom Hero Card (Voice Party Banner) */}
             <View style={[styles.heroSection, { marginTop: 10 }]}>
               <TouchableOpacity
                 style={styles.heroCardTouch}
@@ -398,7 +398,7 @@ export default function ExploreScreen() {
               >
                 <Image
                   source={require('../../assets/images/ref_voice.jpg')}
-                  style={[styles.heroCardImage, { transform: [{ scale: 1.14 }] }]}
+                  style={styles.heroCardImage}
                   resizeMode="cover"
                 />
               </TouchableOpacity>
@@ -847,7 +847,7 @@ export default function ExploreScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#FFFFFF',
   },
 
   /* Header */
@@ -978,16 +978,18 @@ const styles = StyleSheet.create({
   heroCardTouch: {
     width: '100%',
     height: HERO_CARD_HEIGHT,
-    borderRadius: 24,
+    borderRadius: 22,
     overflow: 'hidden',
-    shadowColor: '#0F172A',
-    shadowOpacity: 0.12,
+    shadowColor: '#0F766E',
+    shadowOpacity: 0.08,
     shadowRadius: 8,
-    elevation: 4,
+    elevation: 3,
+    backgroundColor: 'transparent',
   },
   heroCardImage: {
     width: '100%',
     height: '100%',
+    borderRadius: 22,
   },
 
   /* 2x2 Party Games Grid */
@@ -1003,16 +1005,18 @@ const styles = StyleSheet.create({
   gridCardTouch: {
     width: GRID_CARD_WIDTH,
     height: GRID_CARD_HEIGHT,
-    borderRadius: 22,
+    borderRadius: 18,
     overflow: 'hidden',
     shadowColor: '#0F172A',
-    shadowOpacity: 0.12,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 3,
+    backgroundColor: 'transparent',
   },
   gridCardImage: {
     width: '100%',
     height: '100%',
+    borderRadius: 18,
   },
 
   /* Stories Bar */
