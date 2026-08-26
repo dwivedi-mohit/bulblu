@@ -912,7 +912,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: Spacing.lg,
     marginTop: 14,
-    marginBottom: 8,
+    marginBottom: 2,
   },
   sectionTitleRow: {
     flexDirection: 'row',
@@ -933,7 +933,7 @@ const styles = StyleSheet.create({
   /* Master Grid Party Games Section */
   heroSection: {
     paddingHorizontal: 16,
-    marginTop: 4,
+    marginTop: 0,
   },
   heroCardTouch: {
     width: '100%',

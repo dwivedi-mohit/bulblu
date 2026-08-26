@@ -24,46 +24,52 @@ export function GamePlaqueCard({
   isFullWidth = false,
   onPress,
 }: GamePlaqueCardProps) {
-  // Exact Master Grid Dimensions:
-  // Horizontal screen padding = 16px
+  // Master Grid Dimensions:
+  // Screen horizontal padding = 16px
   // Grid column gap = 10px
   const width = isFullWidth
     ? SCREEN_WIDTH - 32
     : Math.floor((SCREEN_WIDTH - 32 - 10) / 2);
 
-  // Balanced height matching master grid
   const height = isFullWidth
     ? Math.floor((SCREEN_WIDTH - 32) / 2.5)
     : Math.floor(width / 2.1);
 
-  const notch = 14; // Corner notch inset size
-  const clipId = `plaque-clip-${Math.random().toString(36).substring(2, 9)}`;
+  const clipId = `smooth-plaque-${Math.random().toString(36).substring(2, 9)}`;
 
-  // Generate SVG Path for Ornamental Scalloped Plaque Shape
-  // M (top-left notch end) -> L (top-right notch start) -> Corner Notch -> L (bottom-right) ...
-  const generatePlaquePath = (w: number, h: number, offset = 0) => {
-    const n = Math.max(8, notch - offset);
+  // Generate Smooth Ornamental Game Plaque Vector Path (Softly rounded with stepped corner arcs)
+  const generateSmoothPlaquePath = (w: number, h: number, offset = 0) => {
+    const r = isFullWidth ? 16 : 14; // Base corner radius
+    const s = isFullWidth ? 6 : 5;   // Stepped notch depth
+    
     const x0 = offset;
     const y0 = offset;
     const x1 = w - offset;
     const y1 = h - offset;
 
+    const startX = r + s + x0;
+    const endX = x1 - r - s;
+
     return `
-      M ${x0 + n} ${y0}
-      L ${x1 - n} ${y0}
-      Q ${x1 - n / 2} ${y0 + n / 2} ${x1} ${y0 + n}
-      L ${x1} ${y1 - n}
-      Q ${x1 - n / 2} ${y1 - n / 2} ${x1 - n} ${y1}
-      L ${x0 + n} ${y1}
-      Q ${x0 + n / 2} ${y1 - n / 2} ${x0} ${y1 - n}
-      L ${x0} ${y0 + n}
-      Q ${x0 + n / 2} ${y0 + n / 2} ${x0 + n} ${y0}
+      M ${startX} ${y0}
+      L ${endX} ${y0}
+      C ${x1 - r} ${y0}, ${x1 - s} ${y0 + s}, ${x1 - s} ${y0 + r}
+      C ${x1 - s} ${y0 + r + s}, ${x1} ${y0 + r + s}, ${x1} ${y0 + r + 2 * s}
+      L ${x1} ${y1 - r - 2 * s}
+      C ${x1} ${y1 - r - s}, ${x1 - s} ${y1 - r - s}, ${x1 - s} ${y1 - r}
+      C ${x1 - s} ${y1}, ${x1 - r} ${y1}, ${endX} ${y1}
+      L ${startX} ${y1}
+      C ${x0 + r} ${y1}, ${x0 + s} ${y1}, ${x0 + s} ${y1 - r}
+      C ${x0 + s} ${y1 - r - s}, ${x0} ${y1 - r - s}, ${x0} ${y1 - r - 2 * s}
+      L ${x0} ${y0 + r + 2 * s}
+      C ${x0} ${y0 + r + s}, ${x0 + s} ${y0 + r + s}, ${x0 + s} ${y0 + r}
+      C ${x0 + s} ${y0}, ${x0 + r} ${y0}, ${startX} ${y0}
       Z
     `.replace(/\s+/g, ' ').trim();
   };
 
-  const outerPath = generatePlaquePath(width, height, 1);
-  const innerPath = generatePlaquePath(width, height, 4);
+  const outerPath = generateSmoothPlaquePath(width, height, 1);
+  const innerPath = generateSmoothPlaquePath(width, height, 4.5);
 
   return (
     <TouchableOpacity
@@ -78,7 +84,7 @@ export function GamePlaqueCard({
           </ClipPath>
         </Defs>
 
-        {/* Clipped Image Graphic inside Plaque Silhouette */}
+        {/* Clipped Image Graphic inside Smooth Plaque Silhouette */}
         <G clipPath={`url(#${clipId})`}>
           <Rect x="0" y="0" width={width} height={height} fill="#FFFFFF" />
           <Image
@@ -88,37 +94,28 @@ export function GamePlaqueCard({
           />
         </G>
 
-        {/* Outer Metallic Border Stroke Following Exact Plaque Silhouette */}
+        {/* Outer Continuous Metallic Border Stroke Following Plaque Silhouette */}
         <Path
           d={outerPath}
           fill="none"
           stroke={borderColor}
-          strokeWidth={2.2}
+          strokeWidth={2.4}
         />
 
-        {/* Inner Hairline Decorative Border Stroke Following Exact Silhouette */}
+        {/* Inset Hairline Decorative Frame Following Plaque Silhouette */}
         <Path
           d={innerPath}
           fill="none"
-          stroke="rgba(255, 255, 255, 0.55)"
-          strokeWidth={1}
+          stroke="rgba(255, 255, 255, 0.65)"
+          strokeWidth={1.2}
         />
 
-        {/* Ornamental Corner Accent Marks */}
+        {/* Corner Metallic Accent Lines */}
         <Path
-          d={`
-            M ${notch} 4 L ${notch + 4} 4
-            M 4 ${notch} L 4 ${notch + 4}
-            M ${width - notch} 4 L ${width - notch - 4} 4
-            M ${width - 4} ${notch} L ${width - 4} ${notch + 4}
-            M ${notch} ${height - 4} L ${notch + 4} ${height - 4}
-            M 4 ${height - notch} L 4 ${height - notch - 4}
-            M ${width - notch} ${height - 4} L ${width - notch - 4} ${height - 4}
-            M ${width - 4} ${height - notch} L ${width - 4} ${height - notch - 4}
-          `}
+          d={outerPath}
           fill="none"
-          stroke={borderColor}
-          strokeWidth={1.2}
+          stroke="rgba(255, 255, 255, 0.3)"
+          strokeWidth={0.8}
         />
       </Svg>
     </TouchableOpacity>
