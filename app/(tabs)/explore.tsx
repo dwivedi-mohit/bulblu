@@ -29,9 +29,9 @@ import { useCallStore } from '../../stores/callStore';
 import type { User, Story, VoiceRoom } from '../../types/database';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const GRID_CARD_WIDTH = (SCREEN_WIDTH - Spacing.lg * 2 - 12) / 2;
-const GRID_CARD_HEIGHT = GRID_CARD_WIDTH / 2.5;
-const HERO_CARD_HEIGHT = (SCREEN_WIDTH - Spacing.lg * 2) / 2.49;
+const GRID_CARD_WIDTH = (SCREEN_WIDTH - 32 - 10) / 2;
+const GRID_CARD_HEIGHT = GRID_CARD_WIDTH / 2.1;
+const HERO_CARD_HEIGHT = (SCREEN_WIDTH - 32) / 2.5;
 
 interface PostItem {
   id: string;
@@ -290,7 +290,7 @@ export default function ExploreScreen() {
               </TouchableOpacity>
             </View>
 
-            {/* 3. Hero Feature Card (1v1 Video) */}
+            {/* 3. Hero Feature Card (1v1 Video - 100% Transparent PNG Card) */}
             <View style={styles.heroSection}>
               <TouchableOpacity
                 style={styles.heroCardTouch}
@@ -298,14 +298,14 @@ export default function ExploreScreen() {
                 activeOpacity={0.9}
               >
                 <Image
-                  source={require('../../assets/images/ref_video.jpg')}
+                  source={require('../../assets/images/clean_video.png')}
                   style={styles.heroCardImage}
-                  resizeMode="cover"
+                  resizeMode="contain"
                 />
               </TouchableOpacity>
             </View>
 
-            {/* 4. WePlay 2-Column Games Grid */}
+            {/* 4. WePlay 2-Column Games Grid (100% Transparent PNG Cards - Zero White BG) */}
             <View style={styles.gridSection}>
               {/* Row 1: Ludo Party + Truth & Dare */}
               <View style={styles.gridRow}>
@@ -315,9 +315,9 @@ export default function ExploreScreen() {
                   activeOpacity={0.9}
                 >
                   <Image
-                    source={require('../../assets/images/ref_ludo.jpg')}
+                    source={require('../../assets/images/clean_ludo.png')}
                     style={styles.gridCardImage}
-                    resizeMode="cover"
+                    resizeMode="contain"
                   />
                 </TouchableOpacity>
 
@@ -327,9 +327,9 @@ export default function ExploreScreen() {
                   activeOpacity={0.9}
                 >
                   <Image
-                    source={require('../../assets/images/ref_truth.jpg')}
+                    source={require('../../assets/images/clean_truth.png')}
                     style={styles.gridCardImage}
-                    resizeMode="cover"
+                    resizeMode="contain"
                   />
                 </TouchableOpacity>
               </View>
@@ -342,9 +342,9 @@ export default function ExploreScreen() {
                   activeOpacity={0.9}
                 >
                   <Image
-                    source={require('../../assets/images/ref_draw.jpg')}
+                    source={require('../../assets/images/clean_draw.png')}
                     style={styles.gridCardImage}
-                    resizeMode="cover"
+                    resizeMode="contain"
                   />
                 </TouchableOpacity>
 
@@ -354,9 +354,9 @@ export default function ExploreScreen() {
                   activeOpacity={0.9}
                 >
                   <Image
-                    source={require('../../assets/images/ref_jackaro.jpg')}
+                    source={require('../../assets/images/clean_jackaro.png')}
                     style={styles.gridCardImage}
-                    resizeMode="cover"
+                    resizeMode="contain"
                   />
                 </TouchableOpacity>
               </View>
@@ -369,9 +369,9 @@ export default function ExploreScreen() {
                   activeOpacity={0.9}
                 >
                   <Image
-                    source={require('../../assets/images/ref_uno.jpg')}
+                    source={require('../../assets/images/clean_uno.png')}
                     style={styles.gridCardImage}
-                    resizeMode="cover"
+                    resizeMode="contain"
                   />
                 </TouchableOpacity>
 
@@ -381,15 +381,15 @@ export default function ExploreScreen() {
                   activeOpacity={0.9}
                 >
                   <Image
-                    source={require('../../assets/images/ref_singing.jpg')}
+                    source={require('../../assets/images/clean_singing.png')}
                     style={styles.gridCardImage}
-                    resizeMode="cover"
+                    resizeMode="contain"
                   />
                 </TouchableOpacity>
               </View>
             </View>
 
-            {/* 5. Featured Bottom Hero Card (Voice Party Banner) */}
+            {/* 5. Featured Bottom Hero Card (Voice Party Banner - 100% Transparent PNG Card) */}
             <View style={[styles.heroSection, { marginTop: 10 }]}>
               <TouchableOpacity
                 style={styles.heroCardTouch}
@@ -397,9 +397,9 @@ export default function ExploreScreen() {
                 activeOpacity={0.9}
               >
                 <Image
-                  source={require('../../assets/images/ref_voice.jpg')}
+                  source={require('../../assets/images/clean_voice.png')}
                   style={styles.heroCardImage}
-                  resizeMode="cover"
+                  resizeMode="contain"
                 />
               </TouchableOpacity>
             </View>
@@ -970,33 +970,36 @@ const styles = StyleSheet.create({
     color: '#0F766E',
   },
 
-  /* Hero Ludo Party Banner */
+  /* Master Grid Party Games Section */
   heroSection: {
-    paddingHorizontal: Spacing.lg,
+    paddingHorizontal: 16,
     marginTop: 4,
   },
   heroCardTouch: {
     width: '100%',
     height: HERO_CARD_HEIGHT,
-    borderRadius: 22,
+    borderRadius: 20,
     overflow: 'hidden',
-    shadowColor: '#0F766E',
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.08,
-    shadowRadius: 8,
+    shadowRadius: 6,
     elevation: 3,
-    backgroundColor: 'transparent',
   },
   heroCardImage: {
     width: '100%',
     height: '100%',
-    borderRadius: 22,
+    borderRadius: 18,
   },
 
-  /* 2x2 Party Games Grid */
+  /* 2-Column Master Grid */
   gridSection: {
-    paddingHorizontal: Spacing.lg,
+    paddingHorizontal: 16,
     marginTop: 10,
-    gap: 10,
+    gap: 8,
   },
   gridRow: {
     flexDirection: 'row',
@@ -1005,13 +1008,16 @@ const styles = StyleSheet.create({
   gridCardTouch: {
     width: GRID_CARD_WIDTH,
     height: GRID_CARD_HEIGHT,
-    borderRadius: 18,
+    borderRadius: 20,
     overflow: 'hidden',
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#FFFFFF',
     shadowColor: '#0F172A',
-    shadowOpacity: 0.06,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.08,
     shadowRadius: 6,
     elevation: 3,
-    backgroundColor: 'transparent',
   },
   gridCardImage: {
     width: '100%',
