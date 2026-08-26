@@ -22,7 +22,7 @@ import { Spacing, Radius } from '../../constants/spacing';
 import { Avatar } from '../../components/ui/Avatar';
 import { DisplayName } from '../../components/ui/UserText';
 import { StoryRing } from '../../components/ui/StoryRing';
-import { WePlayGameCard } from '../../components/game/WePlayGameCard';
+import { GamePlaqueCard } from '../../components/game/GamePlaqueCard';
 import { matchApi, storyApi, voiceRoomApi, notificationApi, postApi } from '../../lib/services';
 import { useAuthStore } from '../../stores/authStore';
 import { useCallStore } from '../../stores/callStore';
@@ -290,118 +290,78 @@ export default function ExploreScreen() {
               </TouchableOpacity>
             </View>
 
-            {/* 3. Hero Feature Card (1v1 Video - 100% Transparent PNG Card) */}
+            {/* 3. Hero Feature Card (1v1 Video Match - Custom Game Plaque Card) */}
             <View style={styles.heroSection}>
-              <TouchableOpacity
-                style={styles.heroCardTouch}
+              <GamePlaqueCard
+                image={require('../../assets/images/ref_video.jpg')}
+                borderColor="#F59E0B"
+                isFullWidth={true}
                 onPress={() => router.push('/(tabs)/video')}
-                activeOpacity={0.9}
-              >
-                <Image
-                  source={require('../../assets/images/clean_video.png')}
-                  style={styles.heroCardImage}
-                  resizeMode="contain"
-                />
-              </TouchableOpacity>
+              />
             </View>
 
-            {/* 4. WePlay 2-Column Games Grid (100% Transparent PNG Cards - Zero White BG) */}
+            {/* 4. WePlay 2-Column Games Grid (Custom Game Plaque Cards) */}
             <View style={styles.gridSection}>
               {/* Row 1: Ludo Party + Truth & Dare */}
               <View style={styles.gridRow}>
-                <TouchableOpacity
-                  style={styles.gridCardTouch}
+                <GamePlaqueCard
+                  image={require('../../assets/images/ref_ludo.jpg')}
+                  borderColor="#06B6D4"
+                  isFullWidth={false}
                   onPress={() => router.push('/game/ludo_party_room_1' as any)}
-                  activeOpacity={0.9}
-                >
-                  <Image
-                    source={require('../../assets/images/clean_ludo.png')}
-                    style={styles.gridCardImage}
-                    resizeMode="contain"
-                  />
-                </TouchableOpacity>
+                />
 
-                <TouchableOpacity
-                  style={styles.gridCardTouch}
+                <GamePlaqueCard
+                  image={require('../../assets/images/ref_truth.jpg')}
+                  borderColor="#EC4899"
+                  isFullWidth={false}
                   onPress={() => router.push('/(tabs)/rent')}
-                  activeOpacity={0.9}
-                >
-                  <Image
-                    source={require('../../assets/images/clean_truth.png')}
-                    style={styles.gridCardImage}
-                    resizeMode="contain"
-                  />
-                </TouchableOpacity>
+                />
               </View>
 
               {/* Row 2: Draw & Guess + Jackaro */}
               <View style={styles.gridRow}>
-                <TouchableOpacity
-                  style={styles.gridCardTouch}
+                <GamePlaqueCard
+                  image={require('../../assets/images/ref_draw.jpg')}
+                  borderColor="#F59E0B"
+                  isFullWidth={false}
                   onPress={() => router.push('/(tabs)/rent')}
-                  activeOpacity={0.9}
-                >
-                  <Image
-                    source={require('../../assets/images/clean_draw.png')}
-                    style={styles.gridCardImage}
-                    resizeMode="contain"
-                  />
-                </TouchableOpacity>
+                />
 
-                <TouchableOpacity
-                  style={styles.gridCardTouch}
+                <GamePlaqueCard
+                  image={require('../../assets/images/ref_jackaro.jpg')}
+                  borderColor="#E11D48"
+                  isFullWidth={false}
                   onPress={() => router.push('/(tabs)/rent')}
-                  activeOpacity={0.9}
-                >
-                  <Image
-                    source={require('../../assets/images/clean_jackaro.png')}
-                    style={styles.gridCardImage}
-                    resizeMode="contain"
-                  />
-                </TouchableOpacity>
+                />
               </View>
 
               {/* Row 3: UNO + Singing & Karaoke */}
               <View style={styles.gridRow}>
-                <TouchableOpacity
-                  style={styles.gridCardTouch}
+                <GamePlaqueCard
+                  image={require('../../assets/images/ref_uno.jpg')}
+                  borderColor="#6366F1"
+                  isFullWidth={false}
                   onPress={() => router.push('/(tabs)/rent')}
-                  activeOpacity={0.9}
-                >
-                  <Image
-                    source={require('../../assets/images/clean_uno.png')}
-                    style={styles.gridCardImage}
-                    resizeMode="contain"
-                  />
-                </TouchableOpacity>
+                />
 
-                <TouchableOpacity
-                  style={styles.gridCardTouch}
+                <GamePlaqueCard
+                  image={require('../../assets/images/ref_singing.jpg')}
+                  borderColor="#F43F5E"
+                  isFullWidth={false}
                   onPress={() => router.push('/(tabs)/voice')}
-                  activeOpacity={0.9}
-                >
-                  <Image
-                    source={require('../../assets/images/clean_singing.png')}
-                    style={styles.gridCardImage}
-                    resizeMode="contain"
-                  />
-                </TouchableOpacity>
+                />
               </View>
             </View>
 
-            {/* 5. Featured Bottom Hero Card (Voice Party Banner - 100% Transparent PNG Card) */}
+            {/* 5. Featured Bottom Hero Card (Voice Party Banner - Custom Game Plaque Card) */}
             <View style={[styles.heroSection, { marginTop: 10 }]}>
-              <TouchableOpacity
-                style={styles.heroCardTouch}
+              <GamePlaqueCard
+                image={require('../../assets/images/ref_voice.jpg')}
+                borderColor="#14B8A6"
+                isFullWidth={true}
                 onPress={() => router.push('/(tabs)/voice')}
-                activeOpacity={0.9}
-              >
-                <Image
-                  source={require('../../assets/images/clean_voice.png')}
-                  style={styles.heroCardImage}
-                  resizeMode="contain"
-                />
-              </TouchableOpacity>
+              />
             </View>
 
             {/* 5. Live Voice Rooms Section (Redesigned Modern Glassmorphism UI) */}
